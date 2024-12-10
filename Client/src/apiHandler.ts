@@ -1,4 +1,4 @@
-import Emitter from "../eventEmitter";
+import Emitter from "./eventEmitter";
 import axios from "axios";
 
 export async function pingServer(apiUrl: string): Promise<boolean> {

@@ -34,8 +34,14 @@ export default class Time {
 
     Emitter.emit("tick");
 
+    // Recursively keep calling tick
     window.requestAnimationFrame(() => {
       this.tick();
     });
+  }
+
+  public destroy() {
+    // Clear event listeners
+    Emitter.off("tick");
   }
 }

@@ -4,13 +4,11 @@
 
 import Emitter from "../../eventEmitter.ts";
 import * as THREE from "three";
-import Experience from "../experience";
+import Experience from "../experience.ts";
 import Camera from "../camera.ts";
 import Debug from "../utils/debug.ts";
-// import ClipBoxHandler from "./clipBoxHandler.ts";
-import ClipBoxHandlerTjx from "./clipBoxHandlerTjx.ts";
-// import ImageBoxHandler from "./imageBoxHandler.ts";
-import ImageBoxHandlerTjx from "./imageBoxHandlerTjx.ts";
+import ClipBoxHandler from "../imageComponents/clipBoxHandler.ts";
+import ImageBoxHandler from "../imageComponents/imageBoxHandler.ts";
 
 export default class World {
   private experience: Experience;
@@ -18,8 +16,8 @@ export default class World {
   private scene: THREE.Scene;
   private debug?: Debug;
 
-  public imageBoxHandler?: ImageBoxHandlerTjx;
-  public clipBoxHandler?: ClipBoxHandlerTjx;
+  public imageBoxHandler?: ImageBoxHandler;
+  public clipBoxHandler?: ClipBoxHandler;
 
   constructor() {
     // Experience fields
@@ -29,8 +27,8 @@ export default class World {
 
     // Events
     Emitter.on("appReady", () => {
-      this.imageBoxHandler = new ImageBoxHandlerTjx();
-      this.clipBoxHandler = new ClipBoxHandlerTjx();
+      this.imageBoxHandler = new ImageBoxHandler();
+      this.clipBoxHandler = new ClipBoxHandler();
     });
 
     Emitter.on("loadedFromApi", () => {
@@ -66,13 +64,11 @@ export default class World {
   }
 
   public update() {
-    this.camera.update();
     this.imageBoxHandler?.update();
     this.clipBoxHandler?.update();
   }
 
   public destroy() {
-    this.camera.destroy();
     this.imageBoxHandler?.destroy();
     this.clipBoxHandler?.destroy();
   }

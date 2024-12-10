@@ -23,4 +23,25 @@ export default class ResourceLoader {
       Emitter.emit("loadedFromApi");
     });
   }
+
+  public destroy() {
+    // Dispose of loaded textures
+    for (const key in this.items) {
+      const item = this.items[key];
+
+      if (item instanceof THREE.Texture) {
+        // Dispose of texture
+        item.dispose();
+      } else if (item instanceof THREE.Mesh) {
+        // Dispose of the meshes if loaded (to free geometries, materials, etc.)
+        if (item.geometry) {
+          item.geometry.dispose();
+        }
+
+        if (item.material) {
+          item.material.dispose();
+        }
+      }
+    }
+  }
 }

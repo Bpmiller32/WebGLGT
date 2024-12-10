@@ -10,7 +10,7 @@ import Input from "./utils/input";
 import ResourceLoader from "./utils/resourceLoader";
 import Camera from "./camera";
 import Renderer from "./renderer";
-import World from "./environment/world";
+import World from "./levels/world";
 import Debug from "./utils/debug";
 
 export default class Experience {
@@ -55,49 +55,45 @@ export default class Experience {
     this.renderer = new Renderer();
     this.world = new World();
 
-    // Events
+    // Sizes resize event
     Emitter.on("resize", () => {
-      this.resize();
+      this.camera.resize();
+      this.renderer.resize();
     });
 
+    // Time tick event
     Emitter.on("tick", () => {
-      this.update();
+      if (this.debug?.isActive) {
+        this.debug.stats?.begin();
+      }
+
+      this.camera.update();
+      this.renderer.update();
+      this.world.update();
+
+      if (this.debug?.isActive) {
+        this.debug.stats?.end();
+      }
     });
   }
 
   /* ------------------------------ Tick methods ------------------------------ */
-  public resize() {
-    this.camera.resize();
-    this.renderer.resize();
-  }
-
-  public update() {
-    if (this.debug?.isActive) {
-      this.debug.stats?.begin();
-    }
-
-    this.world.update();
-    this.renderer.update();
-
-    if (this.debug?.isActive) {
-      this.debug.stats?.end();
-    }
-  }
-
   public destroy() {
-    // Event listeners
-    this.sizes?.destroy();
+    // Clear event listeners
+    this.sizes.destroy();
+    this.time.destroy();
     this.input.destroy();
 
     // Scene items first
     this.world.destroy();
 
-    // Camera then renderer
+    // Camera then physics then renderer then resources
     this.camera.destroy();
     this.renderer.destroy();
+    this.resources.destroy();
 
     // Debug menu
-    if (this.debug?.isActive) {
+    if (this.debug && this.debug.isActive) {
       this.debug.destroy();
     }
   }

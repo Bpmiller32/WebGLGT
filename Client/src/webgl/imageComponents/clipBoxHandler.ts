@@ -9,10 +9,10 @@ import Camera from "../camera";
 import Sizes from "../utils/sizes";
 import Time from "../utils/time";
 import Input from "../utils/input";
-import World from "./world";
+import World from "../levels/world";
 import { CSG } from "three-csg-ts";
 
-export default class ClipBoxHandlerTjx {
+export default class ClipBoxHandler {
   private experience: Experience;
   private scene: THREE.Scene;
   private camera: Camera;

@@ -20,6 +20,7 @@ type EventMap = {
   mouseUp: MouseEvent;
   mouseWheel: WheelEvent;
   lockPointer: boolean;
+
   // world events
   changeClipBoxGroup: number;
   switchCamera: void;

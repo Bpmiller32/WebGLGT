@@ -48,6 +48,7 @@ export default class Renderer {
   }
 
   public destroy() {
-    this.instance?.dispose();
+    // Dispose of the WebGL renderer
+    this.instance.dispose();
   }
 }

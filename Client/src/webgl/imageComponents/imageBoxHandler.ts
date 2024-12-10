@@ -13,7 +13,7 @@ import Input from "../utils/input";
 import Debug from "../utils/debug";
 import Stopwatch from "../utils/stopWatch";
 
-export default class ImageBoxHandlerTjx {
+export default class ImageBoxHandler {
   private experience: Experience;
   private resources: ResourceLoader;
   private renderer: Renderer;
@@ -102,9 +102,9 @@ export default class ImageBoxHandlerTjx {
       this.resources.items.apiImage.image.width /
       this.resources.items.apiImage.image.height;
 
-    const boxHeight = 5;
-    let boxWidth: number;
     const boxDepth = 1;
+    const boxHeight = 5;
+    let boxWidth = 1;
 
     if (textureAspectRatio >= 1) {
       // Landscape or square image, width is scaled by the aspect ratio

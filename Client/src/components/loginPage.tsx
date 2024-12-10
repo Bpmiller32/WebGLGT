@@ -1,8 +1,8 @@
 import Emitter from "../eventEmitter";
 import { defineComponent, onMounted, ref } from "vue";
-import { pingServer } from "./apiHandler";
+import { pingServer } from "../apiHandler";
 import { db } from "../firebase";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import AppLogo from "./subcomponents/appLogo";
 import ServerStatusBadge from "./subcomponents/serverStatusBadge";
 import UserPassInputs from "./subcomponents/userPassInputs";
@@ -27,11 +27,12 @@ export default defineComponent({
 
     onMounted(async () => {
       // Get status of BE server
-      // TODO: remove
-      setTimeout(() => {
-        isServerOnline.value = true;
-      }, 2000);
-      // isServerOnline.value = await pingServer(props.apiUrl);
+      // // TODO: remove
+      // setTimeout(() => {
+      //   isServerOnline.value = true;
+      // }, 2000);
+
+      isServerOnline.value = await pingServer(props.apiUrl);
 
       // Check if the URL ends with #debug
       if (window.location.hash === "#debug") {
@@ -42,42 +43,42 @@ export default defineComponent({
     /* ----------------------------- Template events ---------------------------- */
     const StartAppButtonClicked = async () => {
       // Debug, TODO: remove
-      // Emitter.emit("startApp");
+      Emitter.emit("startApp");
       console.log(username.value);
       return;
 
-      // Firebase login check
-      try {
-        // Get a reference to the document
-        const docRef = doc(db, "logins", username.value.value);
+      // // Firebase login check
+      // try {
+      //   // Get a reference to the document
+      //   const docRef = doc(db, "logins", username.value.value);
 
-        // Fetch the document
-        const docSnap = await getDoc(docRef);
+      //   // Fetch the document
+      //   const docSnap = await getDoc(docRef);
 
-        // Check the loginPage password against the firebase value
-        const document = docSnap.data()!;
+      //   // Check the loginPage password against the firebase value
+      //   const document = docSnap.data()!;
 
-        if (password.value.value !== document.password) {
-          throw new Error();
-        }
+      //   if (password.value.value !== document.password) {
+      //     throw new Error();
+      //   }
 
-        Emitter.emit("startApp");
-        isButtonEnabled.value = false;
-      } catch {
-        didLoginFail.value = true;
-        console.error("Username or password incorrect");
+      //   Emitter.emit("startApp");
+      //   isButtonEnabled.value = false;
+      // } catch {
+      //   didLoginFail.value = true;
+      //   console.error("Username or password incorrect");
 
-        // Trigger again if already failed one login
-        if (didLoginFail.value === true) {
-          const loginErrorLabelElement =
-            document.getElementById("loginErrorLabel");
-          loginErrorLabelElement?.classList.remove("animate-shake");
+      //   // Trigger again if already failed one login
+      //   if (didLoginFail.value === true) {
+      //     const loginErrorLabelElement =
+      //       document.getElementById("loginErrorLabel");
+      //     loginErrorLabelElement?.classList.remove("animate-shake");
 
-          setTimeout(() => {
-            loginErrorLabelElement?.classList.add("animate-shake");
-          }, 100);
-        }
-      }
+      //     setTimeout(() => {
+      //       loginErrorLabelElement?.classList.add("animate-shake");
+      //     }, 100);
+      //   }
+      // }
     };
 
     const DebugButtonClicked = async () => {

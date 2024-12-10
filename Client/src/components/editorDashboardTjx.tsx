@@ -1,7 +1,7 @@
 import Emitter from "../eventEmitter";
 import { defineComponent, ref } from "vue";
 import Experience from "../webgl/experience";
-import { fillInForm, gotoNextImage } from "./apiHandler";
+import { fillInForm, gotoNextImage } from "../apiHandler";
 import {
   ArrowUpCircleIcon,
   ArrowUturnLeftIcon,

@@ -7,7 +7,7 @@ import {
   downloadImage,
   getApiKey,
   startBrowserInstance,
-} from "./components/apiHandler.ts";
+} from "./apiHandler.ts";
 import StatusAlert from "./components/statusAlert.tsx";
 import Emitter from "./eventEmitter.ts";
 
