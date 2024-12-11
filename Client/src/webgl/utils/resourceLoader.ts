@@ -2,7 +2,7 @@
 /*          Used to centralize all asset loading in a dedicated class         */
 /* -------------------------------------------------------------------------- */
 
-import Emitter from "../../eventEmitter";
+import Emitter from "./eventEmitter";
 import * as THREE from "three";
 
 export default class ResourceLoader {

@@ -9,7 +9,7 @@ import {
   startBrowserInstance,
 } from "./apiHandler.ts";
 import StatusAlert from "./components/statusAlert.tsx";
-import Emitter from "./eventEmitter.ts";
+import Emitter from "./webgl/utils/eventEmitter.ts";
 
 /* -------------------------------- App setup ------------------------------- */
 const webglRef = ref<HTMLCanvasElement | null>(null);

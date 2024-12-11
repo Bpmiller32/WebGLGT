@@ -2,7 +2,7 @@
 /*     Overall handler that mounts a webgl render to a dom canvas element     */
 /* -------------------------------------------------------------------------- */
 
-import Emitter from "../eventEmitter";
+import Emitter from "./utils/eventEmitter";
 import * as THREE from "three";
 import Sizes from "./utils/sizes";
 import Time from "./utils/time";

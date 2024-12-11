@@ -2,33 +2,36 @@
 /*         The "World" in which all resources for the webgl scene live        */
 /* -------------------------------------------------------------------------- */
 
-import Emitter from "../../eventEmitter.ts";
+import Emitter from "../utils/eventEmitter.ts";
 import * as THREE from "three";
 import Experience from "../experience.ts";
 import Camera from "../camera.ts";
 import Debug from "../utils/debug.ts";
-import ClipBoxHandler from "../imageComponents/clipBoxHandler.ts";
-import ImageBoxHandler from "../imageComponents/imageBoxHandler.ts";
+import ClipBox from "../gtComponents/clipBox.ts";
+import ImageBox from "../gtComponents/imageBox.ts";
+import { debugWorld, debugWorldUpdate } from "../utils/debug/debugWorld.ts";
 
 export default class World {
-  private experience: Experience;
-  private camera: Camera;
-  private scene: THREE.Scene;
-  private debug?: Debug;
+  public experience: Experience;
+  public camera: Camera;
+  public scene: THREE.Scene;
+  public debug?: Debug;
+  public renderObjectCount: number;
 
-  public imageBoxHandler?: ImageBoxHandler;
-  public clipBoxHandler?: ClipBoxHandler;
+  public imageBoxHandler?: ImageBox;
+  public clipBoxHandler?: ClipBox;
 
   constructor() {
     // Experience fields
     this.experience = Experience.getInstance();
     this.camera = this.experience.camera;
     this.scene = this.experience.scene;
+    this.renderObjectCount = 0;
 
     // Events
     Emitter.on("appReady", () => {
-      this.imageBoxHandler = new ImageBoxHandler();
-      this.clipBoxHandler = new ClipBoxHandler();
+      this.imageBoxHandler = new ImageBox();
+      this.clipBoxHandler = new ClipBox();
     });
 
     Emitter.on("loadedFromApi", () => {
@@ -45,25 +48,16 @@ export default class World {
     // Debug
     if (this.experience.debug?.isActive) {
       this.debug = this.experience.debug;
-
-      const worldDebug = this.debug.ui?.addFolder("worldDebug");
-      worldDebug?.open();
-      worldDebug
-        ?.add(this.scene.children, "length")
-        .name("# of scene children")
-        .listen();
-      worldDebug
-        ?.add(this.experience.sizes, "width")
-        .name("renderer width")
-        .listen();
-      worldDebug
-        ?.add(this.experience.sizes, "height")
-        .name("renderer height")
-        .listen();
+      debugWorld(this);
     }
   }
 
   public update() {
+    // Run debug physics logic if needed
+    if (this.debug) {
+      debugWorldUpdate(this);
+    }
+
     this.imageBoxHandler?.update();
     this.clipBoxHandler?.update();
   }

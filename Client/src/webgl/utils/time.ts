@@ -2,7 +2,7 @@
 /*    Used to pass all time and tick related to Experience and its children   */
 /* -------------------------------------------------------------------------- */
 
-import Emitter from "../../eventEmitter";
+import Emitter from "./eventEmitter";
 import * as THREE from "three";
 
 export default class Time {

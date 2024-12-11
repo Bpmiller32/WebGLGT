@@ -1,4 +1,4 @@
-import Emitter from "../eventEmitter";
+import Emitter from "../webgl/utils/eventEmitter";
 import { defineComponent, onMounted, ref } from "vue";
 import { pingServer } from "../apiHandler";
 import { db } from "../firebase";

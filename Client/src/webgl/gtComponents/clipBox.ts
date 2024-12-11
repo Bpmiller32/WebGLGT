@@ -2,7 +2,7 @@
 /*   Handler for creating and joining clipping boxes, cropping to image box   */
 /* -------------------------------------------------------------------------- */
 
-import Emitter from "../../eventEmitter";
+import Emitter from "../utils/eventEmitter";
 import * as THREE from "three";
 import Experience from "../experience";
 import Camera from "../camera";
@@ -11,8 +11,10 @@ import Time from "../utils/time";
 import Input from "../utils/input";
 import World from "../levels/world";
 import { CSG } from "three-csg-ts";
+import Debug from "../utils/debug";
+import { debugClipBox } from "../utils/debug/debugClipBox";
 
-export default class ClipBoxHandler {
+export default class ClipBox {
   private experience: Experience;
   private scene: THREE.Scene;
   private camera: Camera;
@@ -20,16 +22,17 @@ export default class ClipBoxHandler {
   private time: Time;
   private input: Input;
   private world: World;
+  public debug?: Debug;
 
   private hasMovedMouseOnce: boolean;
   private worldStartMousePosition: THREE.Vector3;
   private worldEndMousePosition: THREE.Vector3;
   private activeMesh: THREE.Mesh;
   private visualCueMesh: THREE.Mesh;
-  private activeClipBoxGroup: number;
-  private clipBoxes0: THREE.Mesh[];
-  private clipBoxes1: THREE.Mesh[];
-  private clipBoxes2: THREE.Mesh[];
+  public activeClipBoxGroup: number;
+  public clipBoxes0: THREE.Mesh[];
+  public clipBoxes1: THREE.Mesh[];
+  public clipBoxes2: THREE.Mesh[];
   private boxSizeThreshold: number;
 
   public combinedBoundingBox: THREE.Box3;
@@ -78,6 +81,12 @@ export default class ClipBoxHandler {
     Emitter.on("resetImage", () => {
       this.destroy();
     });
+
+    // Debug
+    if (this.experience.debug?.isActive) {
+      this.debug = this.experience.debug;
+      debugClipBox(this);
+    }
   }
 
   /* ------------------------------ Event methods ----------------------------- */

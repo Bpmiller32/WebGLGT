@@ -2,7 +2,7 @@
 /*    Used to pass all window/dom element sizes to Element and its children   */
 /* -------------------------------------------------------------------------- */
 
-import Emitter from "../../eventEmitter";
+import Emitter from "./eventEmitter";
 
 export default class Sizes {
   public width: number;

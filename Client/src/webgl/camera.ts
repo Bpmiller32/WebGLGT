@@ -2,13 +2,14 @@
 /*             The camera and camera controls for the webgl scene             */
 /* -------------------------------------------------------------------------- */
 
-import Emitter from "../eventEmitter";
+import Emitter from "./utils/eventEmitter";
 import * as THREE from "three";
 import Experience from "./experience";
 import Sizes from "./utils/sizes";
 import Time from "./utils/time";
 import Input from "./utils/input";
 import Debug from "./utils/debug";
+import { debugCamera } from "./utils/debug/debugCamera";
 
 export default class Camera {
   private experience: Experience;
@@ -16,11 +17,12 @@ export default class Camera {
   private sizes: Sizes;
   private time: Time;
   private input: Input;
-  private debug?: Debug;
+  public debug?: Debug;
 
   public instance: THREE.Camera;
   public orthographicCamera!: THREE.OrthographicCamera;
   public perspectiveCamera!: THREE.PerspectiveCamera;
+  public cameraType!: string;
 
   public targetPostion: THREE.Vector3;
   public targetZoom: number;
@@ -42,6 +44,7 @@ export default class Camera {
     this.sensitivityMovement = 0.1;
     this.sensitivityZoom = 0.1;
     this.maximumZoomLevel = 10;
+    this.cameraType = "orthographic";
 
     this.setOrthographicInstance();
     // this.setPerspectiveInstance();
@@ -69,33 +72,8 @@ export default class Camera {
     // Debug GUI
     if (this.experience.debug?.isActive) {
       this.debug = this.experience.debug;
-
       this.setPerspectiveInstance();
-
-      const cameraDebug = this.debug.ui?.addFolder("cameraDebug");
-      cameraDebug?.open();
-      cameraDebug
-        ?.add(this.instance.position, "x")
-        .name("xPosition")
-        .step(0.01)
-        .listen();
-      cameraDebug
-        ?.add(this.instance.position, "y")
-        .step(0.01)
-        .name("yPosition")
-        .listen();
-      cameraDebug
-        ?.add(this.instance.position, "z")
-        .name("zPosition")
-        .step(0.01)
-        .listen();
-      if (this.instance instanceof THREE.OrthographicCamera) {
-        cameraDebug
-          ?.add(this.instance, "zoom")
-          .name("zoom")
-          .step(0.01)
-          .listen();
-      }
+      debugCamera(this);
     }
   }
   /* ---------------------- Instance methods and controls --------------------- */

@@ -2,7 +2,7 @@
 /*   Handler for creating and joining clipping boxes, cropping to image box   */
 /* -------------------------------------------------------------------------- */
 
-import Emitter from "../../eventEmitter";
+import Emitter from "../utils/eventEmitter";
 import * as THREE from "three";
 import Experience from "../experience";
 import ResourceLoader from "../utils/resourceLoader";
@@ -12,16 +12,17 @@ import Sizes from "../utils/sizes";
 import Input from "../utils/input";
 import Debug from "../utils/debug";
 import Stopwatch from "../utils/stopWatch";
+import { debugImageBox } from "../utils/debug/debugImageBox";
 
-export default class ImageBoxHandler {
+export default class ImageBox {
   private experience: Experience;
   private resources: ResourceLoader;
   private renderer: Renderer;
   private scene: THREE.Scene;
   private camera: Camera;
   private sizes: Sizes;
-  private input: Input;
-  private debug?: Debug;
+  public input: Input;
+  public debug?: Debug;
 
   public geometry!: THREE.BoxGeometry;
   public materials!: THREE.MeshBasicMaterial[];
@@ -74,26 +75,7 @@ export default class ImageBoxHandler {
     // Debug
     if (this.experience.debug?.isActive) {
       this.debug = this.experience.debug;
-
-      const imageBoxDebug = this.debug.ui?.addFolder("imageBoxDebug");
-      imageBoxDebug?.open();
-      imageBoxDebug
-        ?.add(this, "imageDownloadCount")
-        .name("# of images DL'd")
-        .listen();
-      imageBoxDebug
-        ?.add(this.stopwatch, "elapsedTime")
-        .name("time on image")
-        .listen();
-      imageBoxDebug
-        ?.add(this.input, "isShiftLeftPressed")
-        .name("Image adjust mode")
-        .listen();
-      imageBoxDebug
-        ?.add(this, "debugRotation")
-        .name("Image rotation")
-        .step(0.01)
-        .listen();
+      debugImageBox(this);
     }
   }
   /* ---------------------------- Instance methods ---------------------------- */
