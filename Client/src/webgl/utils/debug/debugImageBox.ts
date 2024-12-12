@@ -15,11 +15,11 @@ export const debugImageBox = (imageBox: ImageBox) => {
     .listen();
   imageBoxDebug
     ?.add(imageBox.input, "isShiftLeftPressed")
-    .name("Image adjust mode")
+    .name("image adjust mode")
     .listen();
   imageBoxDebug
-    ?.add(imageBox, "debugRotation")
-    .name("Image rotation")
+    ?.add(imageBox, "imageRotation")
+    .name("image rotation")
     .step(0.01)
     .listen();
 };

@@ -153,6 +153,16 @@ export default class Camera {
   }
 
   private mouseMove(event: MouseEvent) {
+    // TODO: debug
+    // if (this.input.isShiftLeftPressed && !this.input.isRightClickPressed) {
+    //   const deltaX = event.movementX;
+    //   const deltaY = event.movementY;
+
+    //   this.instance.rotation.z -= deltaY * 0.01;
+    //   this.instance.rotation.z -= deltaX * 0.01;
+    //   return;
+    // }
+
     if (!this.input.isRightClickPressed) {
       return;
     }
@@ -231,7 +241,7 @@ export default class Camera {
     this.instance.zoom +=
       (this.targetZoom - this.instance.zoom) * this.sensitivityZoom;
 
-    // Called to make zoom work
+    // Called to make zoom work, updates the projection matrix after frustum changes
     this.instance.updateProjectionMatrix();
   }
 

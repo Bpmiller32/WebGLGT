@@ -12,34 +12,32 @@ import ImageBox from "../gtComponents/imageBox.ts";
 import { debugWorld, debugWorldUpdate } from "../utils/debug/debugWorld.ts";
 
 export default class World {
-  public experience: Experience;
-  public camera: Camera;
-  public scene: THREE.Scene;
+  public experience!: Experience;
+  public camera!: Camera;
+  public scene!: THREE.Scene;
   public debug?: Debug;
-  public renderObjectCount: number;
+  public renderObjectCount!: number;
 
-  public imageBoxHandler?: ImageBox;
-  public clipBoxHandler?: ClipBox;
+  public imageBox?: ImageBox;
+  public clipBox?: ClipBox;
 
   constructor() {
-    // Experience fields
-    this.experience = Experience.getInstance();
-    this.camera = this.experience.camera;
-    this.scene = this.experience.scene;
-    this.renderObjectCount = 0;
+    // Init
+    this.initializeFields();
 
     // Events
     Emitter.on("appReady", () => {
-      this.imageBoxHandler = new ImageBox();
-      this.clipBoxHandler = new ClipBox();
+      this.imageBox = new ImageBox();
+      this.clipBox = new ClipBox();
     });
 
     Emitter.on("loadedFromApi", () => {
-      this.imageBoxHandler?.destroy();
-      this.imageBoxHandler?.setNewImage();
+      this.imageBox?.destroy();
+      this.imageBox?.setNewImage();
 
-      this.clipBoxHandler?.destroy();
-      this.clipBoxHandler?.setVisualCueMesh();
+      this.clipBox?.destroyVisualCueMesh();
+      this.clipBox?.destroy();
+      this.clipBox?.setVisualCueMesh();
 
       this.camera.targetPostion.set(0, 0, 10);
       this.camera.targetZoom = 1;
@@ -52,18 +50,28 @@ export default class World {
     }
   }
 
+  private initializeFields() {
+    // Experience fields
+    this.experience = Experience.getInstance();
+    this.camera = this.experience.camera;
+    this.scene = this.experience.scene;
+
+    // Class fields
+    this.renderObjectCount = 0;
+  }
+
   public update() {
     // Run debug physics logic if needed
     if (this.debug) {
       debugWorldUpdate(this);
     }
 
-    this.imageBoxHandler?.update();
-    this.clipBoxHandler?.update();
+    this.imageBox?.update();
+    this.clipBox?.update();
   }
 
   public destroy() {
-    this.imageBoxHandler?.destroy();
-    this.clipBoxHandler?.destroy();
+    this.imageBox?.destroy();
+    this.clipBox?.destroy();
   }
 }

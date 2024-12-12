@@ -218,17 +218,13 @@ export default defineComponent({
         const newData = {
           imageName: imageNameRef.value.innerText,
           imageType: imageType,
-          timeOnImage: experience.world.imageBoxHandler?.stopwatch.elapsedTime,
-          rotation: experience.world.imageBoxHandler?.debugRotation,
+          timeOnImage: experience.world.imageBox?.stopwatch.elapsedTime,
+          rotation: experience.world.imageBox?.imageRotation,
           addressSubmitted: data.address,
-          boundingBoxMinX:
-            experience.world.clipBoxHandler?.combinedBoundingBox.min.x,
-          boundingBoxMinY:
-            experience.world.clipBoxHandler?.combinedBoundingBox.min.y,
-          boundingBoxMaxX:
-            experience.world.clipBoxHandler?.combinedBoundingBox.max.x,
-          boundingBoxMaxY:
-            experience.world.clipBoxHandler?.combinedBoundingBox.max.y,
+          boundingBoxMinX: experience.world.clipBox?.combinedBoundingBox.min.x,
+          boundingBoxMinY: experience.world.clipBox?.combinedBoundingBox.min.y,
+          boundingBoxMaxX: experience.world.clipBox?.combinedBoundingBox.max.x,
+          boundingBoxMaxY: experience.world.clipBox?.combinedBoundingBox.max.y,
           dateSubmitted: new Date(),
         };
 

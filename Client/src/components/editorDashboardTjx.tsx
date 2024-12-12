@@ -191,8 +191,8 @@ export default defineComponent({
         const newData = {
           imageName: imageNameRef.value.innerText,
           imageType: imageType,
-          timeOnImage: experience.world.imageBoxHandler?.stopwatch.elapsedTime,
-          rotation: experience.world.imageBoxHandler?.debugRotation,
+          timeOnImage: experience.world.imageBox?.stopwatch.elapsedTime,
+          rotation: experience.world.imageBox?.imageRotation,
           addressSubmitted: data.address,
           dateSubmitted: new Date(),
         };

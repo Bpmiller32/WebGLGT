@@ -242,7 +242,9 @@ export default class Input {
         keyCode: "F9",
         isPressed: (eventResult: boolean) => {
           if (eventResult) {
-            Emitter.emit("resetImage");
+            // Emitter.emit("resetImage");
+            // TODO: remove after debug
+            Emitter.emit("test");
           }
 
           this.isF9KeyPressed = eventResult;

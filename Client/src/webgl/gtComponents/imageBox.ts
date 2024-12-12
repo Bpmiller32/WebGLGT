@@ -15,28 +15,69 @@ import Stopwatch from "../utils/stopWatch";
 import { debugImageBox } from "../utils/debug/debugImageBox";
 
 export default class ImageBox {
-  private experience: Experience;
-  private resources: ResourceLoader;
-  private renderer: Renderer;
-  private scene: THREE.Scene;
-  private camera: Camera;
-  private sizes: Sizes;
-  public input: Input;
+  private experience!: Experience;
+  private resources!: ResourceLoader;
+  private renderer!: Renderer;
+  private scene!: THREE.Scene;
+  private camera!: Camera;
+  private sizes!: Sizes;
+  public input!: Input;
   public debug?: Debug;
 
   public geometry!: THREE.BoxGeometry;
   public materials!: THREE.MeshBasicMaterial[];
   public mesh?: THREE.Mesh;
 
-  private rotationSpeed: number;
-  private lerpFactor: number;
-  private targetRotation: THREE.Vector2;
+  private rotationSpeed!: number;
+  private lerpFactor!: number;
+  public targetRotation!: THREE.Vector2;
 
-  public debugRotation: number;
-  public stopwatch: Stopwatch;
-  public imageDownloadCount: number;
+  public imageRotation!: number;
+  public stopwatch!: Stopwatch;
+  public imageDownloadCount!: number;
 
   constructor() {
+    // Init
+    this.initializeFields();
+
+    // Events
+    Emitter.on("screenshotImage", () => {
+      this.screenshotImage();
+    });
+    Emitter.on("resetImage", () => {
+      this.resetImage();
+    });
+    Emitter.on("mouseMove", (event) => {
+      // TODO: debug
+      this.mouseMove(event);
+    });
+    Emitter.on("lockPointer", (event) => {
+      this.lockPointer(event);
+    });
+
+    // TODO: remove after debug
+    Emitter.on("stitchBoxes", () => {
+      // const imageBoxCorners: THREE.Vector3[] = [];
+      // const imageBoxBoundingBox = this.mesh!.geometry.boundingBox;
+      // if (imageBoxBoundingBox) {
+      //   const iBmin = imageBoxBoundingBox.min;
+      //   const iBmax = imageBoxBoundingBox.max;
+      //   // Define the 8 corner points of the bounding box
+      //   imageBoxCorners.push(new THREE.Vector3(iBmin.x, iBmin.y, iBmin.z)); // 0
+      //   imageBoxCorners.push(new THREE.Vector3(iBmax.x, iBmin.y, iBmin.z)); // 1
+      //   imageBoxCorners.push(new THREE.Vector3(iBmin.x, iBmax.y, iBmin.z)); // 2
+      //   imageBoxCorners.push(new THREE.Vector3(iBmax.x, iBmax.y, iBmin.z)); // 3
+      //   console.log("World coordinates of image box corners:", imageBoxCorners);
+      // }
+    });
+
+    // Debug
+    if (this.experience.debug?.isActive) {
+      this.debug = this.experience.debug;
+      debugImageBox(this);
+    }
+  }
+  private initializeFields() {
     // Experience fields
     this.experience = Experience.getInstance();
     this.renderer = this.experience.renderer;
@@ -53,31 +94,12 @@ export default class ImageBox {
     // this.lerpFactor = 0.1;
     this.targetRotation = new THREE.Vector2();
 
-    // Debug fields
-    this.debugRotation = 0;
+    // Backend fields
+    this.imageRotation = 0;
     this.stopwatch = new Stopwatch();
     this.imageDownloadCount = 0;
-
-    // Events
-    Emitter.on("screenshotImage", () => {
-      this.screenshotImage();
-    });
-    Emitter.on("resetImage", () => {
-      this.resetImage();
-    });
-    Emitter.on("mouseMove", (event) => {
-      this.mouseMove(event);
-    });
-    Emitter.on("lockPointer", (event) => {
-      this.lockPointer(event);
-    });
-
-    // Debug
-    if (this.experience.debug?.isActive) {
-      this.debug = this.experience.debug;
-      debugImageBox(this);
-    }
   }
+
   /* ---------------------------- Instance methods ---------------------------- */
   private setGeometry() {
     const textureAspectRatio =
@@ -118,7 +140,33 @@ export default class ImageBox {
     this.mesh.updateMatrix();
 
     // Fix for debug since mesh is not always set
-    this.debugRotation = this.convertRotation(this.mesh.rotation.z);
+    this.imageRotation = this.convertRotation(this.mesh.rotation.z);
+
+    // TODO: remove after debug
+    // Debug, red bounding box
+    const boundingBox = new THREE.BoxHelper(this.mesh!, 0xff0000);
+    this.scene.add(boundingBox);
+
+    // Ensure the mesh has geometry and it's up-to-date
+    if (this.mesh?.geometry) {
+      this.mesh.geometry.computeBoundingBox();
+
+      const box = this.mesh.geometry.boundingBox;
+      if (box) {
+        const width = box.max.x - box.min.x;
+        const height = box.max.y - box.min.y;
+        const depth = box.max.z - box.min.z;
+
+        console.log("Dimensions of the bounding box:");
+        console.log("Width:", width);
+        console.log("Height:", height);
+        console.log("Depth:", depth);
+      } else {
+        console.log("Bounding box is still null");
+      }
+    } else {
+      console.log("Mesh does not have geometry or it is null");
+    }
   }
 
   /* ------------------------------ Event methods ----------------------------- */
@@ -302,12 +350,12 @@ export default class ImageBox {
       return;
     }
 
-    // Mouse moving on x axis
-    this.mesh.rotation.z = THREE.MathUtils.lerp(
-      this.mesh.rotation.z,
-      this.targetRotation.x,
-      this.lerpFactor
-    );
+    // // Mouse moving on x axis
+    // this.mesh.rotation.z = THREE.MathUtils.lerp(
+    //   this.mesh.rotation.z,
+    //   this.targetRotation.x,
+    //   this.lerpFactor
+    // );
     // Mouse moving on y axis
     this.mesh.rotation.z = THREE.MathUtils.lerp(
       this.mesh.rotation.z,
@@ -316,7 +364,29 @@ export default class ImageBox {
     );
 
     // Fix for debug since mesh isn't always set, normalize degrees to be within the range [0, 360)
-    this.debugRotation = this.convertRotation(this.mesh.rotation.z);
+    this.imageRotation = this.convertRotation(this.mesh.rotation.z);
+  }
+
+  public worldToUV(
+    worldCoord: THREE.Vector3,
+    mesh: THREE.Mesh,
+    boundingBox: THREE.Box3
+  ) {
+    // Step 1: Transform world coordinates to local coordinates
+    const worldToLocalMatrix = new THREE.Matrix4()
+      .copy(mesh.matrixWorld)
+      .invert();
+    const localCoord = worldCoord.clone().applyMatrix4(worldToLocalMatrix);
+
+    // Step 2: Normalize the local coordinates to UV space (0 to 1)
+    const u =
+      (localCoord.x - boundingBox.min.x) /
+      (boundingBox.max.x - boundingBox.min.x);
+    const v =
+      (localCoord.y - boundingBox.min.y) /
+      (boundingBox.max.y - boundingBox.min.y);
+
+    return new THREE.Vector2(u, v);
   }
 
   public destroy() {
