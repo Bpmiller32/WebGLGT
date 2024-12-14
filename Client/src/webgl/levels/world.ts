@@ -7,8 +7,8 @@ import * as THREE from "three";
 import Experience from "../experience.ts";
 import Camera from "../camera.ts";
 import Debug from "../utils/debug.ts";
-import ClipBox from "../gtComponents/clipBox.ts";
-import ImageBox from "../gtComponents/imageBox.ts";
+import SelectionGroupManager from "../gtComponents/selectionGroupManager.ts";
+import ImageContainer from "../gtComponents/imageContainer.ts";
 import { debugWorld, debugWorldUpdate } from "../utils/debug/debugWorld.ts";
 
 export default class World {
@@ -18,8 +18,8 @@ export default class World {
   public debug?: Debug;
   public renderObjectCount!: number;
 
-  public imageBox?: ImageBox;
-  public clipBox?: ClipBox;
+  public imageContainer?: ImageContainer;
+  public selectionGroupManager?: SelectionGroupManager;
 
   constructor() {
     // Init
@@ -27,17 +27,17 @@ export default class World {
 
     // Events
     Emitter.on("appReady", () => {
-      this.imageBox = new ImageBox();
-      this.clipBox = new ClipBox();
+      this.imageContainer = new ImageContainer();
+      this.selectionGroupManager = new SelectionGroupManager();
     });
 
     Emitter.on("loadedFromApi", () => {
-      this.imageBox?.destroy();
-      this.imageBox?.setNewImage();
+      this.imageContainer?.destroy();
+      this.imageContainer?.setNewImage();
 
-      this.clipBox?.destroyVisualCueMesh();
-      this.clipBox?.destroy();
-      this.clipBox?.setVisualCueMesh();
+      this.selectionGroupManager?.destroyVisualCueMesh();
+      this.selectionGroupManager?.destroy();
+      this.selectionGroupManager?.setVisualCueMesh();
 
       this.camera.targetPostion.set(0, 0, 10);
       this.camera.targetZoom = 1;
@@ -66,12 +66,12 @@ export default class World {
       debugWorldUpdate(this);
     }
 
-    this.imageBox?.update();
-    this.clipBox?.update();
+    this.imageContainer?.update();
+    this.selectionGroupManager?.update();
   }
 
   public destroy() {
-    this.imageBox?.destroy();
-    this.clipBox?.destroy();
+    this.imageContainer?.destroy();
+    this.selectionGroupManager?.destroy();
   }
 }

@@ -1,6 +1,6 @@
 import Emitter from "../webgl/utils/eventEmitter";
 import { pingServer } from "../apiHandler";
-import { defineComponent, onMounted, ref } from "vue";
+import { defineComponent, onMounted, PropType, ref } from "vue";
 import AppLogo from "./subcomponents/AppLogo";
 import ServerStatusBadge from "./subcomponents/ServerStatusBadge";
 import UserPassInputs from "./subcomponents/UserPassInputs";
@@ -11,19 +11,22 @@ import LoginErrorLabel from "./subcomponents/LoginErrorLabel";
 export default defineComponent({
   props: {
     apiUrl: {
-      type: String,
+      type: String as PropType<string>,
       required: true,
     },
   },
   setup(props) {
     /* ------------------------ Component state and setup ----------------------- */
+    // Template ref
+    const loginErrorLabelRef = ref<HTMLElement | null>(null);
+
     const username = ref("");
     const password = ref("");
+
     const isServerOnline = ref(false);
     const isButtonEnabled = ref(true);
-    const didLoginFail = ref(false);
     const isDebugEnabled = ref(false);
-    const loginErrorLabelRef = ref<HTMLElement | null>(null);
+    const didLoginFail = ref(false);
 
     /* ----------------------------- Lifecycle Events ---------------------------- */
     onMounted(async () => {

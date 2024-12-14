@@ -1,7 +1,6 @@
 import { defineComponent, PropType } from "vue";
 
 export default defineComponent({
-  name: "MailButton",
   props: {
     buttonType: {
       type: String as PropType<string>,

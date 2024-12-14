@@ -12,9 +12,10 @@ import Sizes from "../utils/sizes";
 import Input from "../utils/input";
 import Debug from "../utils/debug";
 import Stopwatch from "../utils/stopWatch";
-import { debugImageBox } from "../utils/debug/debugImageBox";
+import { debugImageContainer } from "../utils/debug/debugImageContainer";
+import GtUtils from "../utils/gtUtils";
 
-export default class ImageBox {
+export default class ImageContainer {
   private experience!: Experience;
   private resources!: ResourceLoader;
   private renderer!: Renderer;
@@ -55,26 +56,10 @@ export default class ImageBox {
       this.lockPointer(event);
     });
 
-    // TODO: remove after debug
-    Emitter.on("stitchBoxes", () => {
-      // const imageBoxCorners: THREE.Vector3[] = [];
-      // const imageBoxBoundingBox = this.mesh!.geometry.boundingBox;
-      // if (imageBoxBoundingBox) {
-      //   const iBmin = imageBoxBoundingBox.min;
-      //   const iBmax = imageBoxBoundingBox.max;
-      //   // Define the 8 corner points of the bounding box
-      //   imageBoxCorners.push(new THREE.Vector3(iBmin.x, iBmin.y, iBmin.z)); // 0
-      //   imageBoxCorners.push(new THREE.Vector3(iBmax.x, iBmin.y, iBmin.z)); // 1
-      //   imageBoxCorners.push(new THREE.Vector3(iBmin.x, iBmax.y, iBmin.z)); // 2
-      //   imageBoxCorners.push(new THREE.Vector3(iBmax.x, iBmax.y, iBmin.z)); // 3
-      //   console.log("World coordinates of image box corners:", imageBoxCorners);
-      // }
-    });
-
     // Debug
     if (this.experience.debug?.isActive) {
       this.debug = this.experience.debug;
-      debugImageBox(this);
+      debugImageContainer(this);
     }
   }
   private initializeFields() {
@@ -90,7 +75,7 @@ export default class ImageBox {
     // Class fields
     this.rotationSpeed = 0.005;
     this.lerpFactor = 1;
-    // TODO: fix the rotation lerp on ClipBoxHandler to sync with this
+    // TODO: fix the rotation lerp on selectionGroupManager to sync with this
     // this.lerpFactor = 0.1;
     this.targetRotation = new THREE.Vector2();
 
@@ -133,40 +118,13 @@ export default class ImageBox {
   }
 
   private setMesh() {
+    // Create mesh, add to scene, update matrix local position for CSG
     this.mesh = new THREE.Mesh(this.geometry, this.materials);
     this.scene.add(this.mesh);
-
-    // Update matrix local position for CSG
     this.mesh.updateMatrix();
 
     // Fix for debug since mesh is not always set
     this.imageRotation = this.convertRotation(this.mesh.rotation.z);
-
-    // TODO: remove after debug
-    // Debug, red bounding box
-    const boundingBox = new THREE.BoxHelper(this.mesh!, 0xff0000);
-    this.scene.add(boundingBox);
-
-    // Ensure the mesh has geometry and it's up-to-date
-    if (this.mesh?.geometry) {
-      this.mesh.geometry.computeBoundingBox();
-
-      const box = this.mesh.geometry.boundingBox;
-      if (box) {
-        const width = box.max.x - box.min.x;
-        const height = box.max.y - box.min.y;
-        const depth = box.max.z - box.min.z;
-
-        console.log("Dimensions of the bounding box:");
-        console.log("Width:", width);
-        console.log("Height:", height);
-        console.log("Depth:", depth);
-      } else {
-        console.log("Bounding box is still null");
-      }
-    } else {
-      console.log("Mesh does not have geometry or it is null");
-    }
   }
 
   /* ------------------------------ Event methods ----------------------------- */
@@ -175,27 +133,14 @@ export default class ImageBox {
     const originalRendererSize = new THREE.Vector2();
     this.renderer.instance.getSize(originalRendererSize);
 
-    // Compute the bounding box of the mesh
-    const boundingBox = new THREE.Box3().setFromObject(this.mesh!);
-    const boundingBoxSize = boundingBox.getSize(new THREE.Vector3());
-    const boundingBoxCenter = boundingBox.getCenter(new THREE.Vector3());
+    // TODO: reenable?, selectionGroupManager already positions things in frame
+    // // Compute the bounding box of the mesh
+    // const boundingBox = new THREE.Box3().setFromObject(this.mesh!);
+    // const boundingBoxSize = boundingBox.getSize(new THREE.Vector3());
+    // const boundingBoxCenter = boundingBox.getCenter(new THREE.Vector3());
 
-    // Adjust the camera to fit the bounding box
-    const maxDimension = Math.max(
-      boundingBoxSize.x,
-      boundingBoxSize.y,
-      boundingBoxSize.z
-    );
-    this.camera.orthographicCamera.position.set(
-      boundingBoxCenter.x,
-      boundingBoxCenter.y,
-      boundingBoxCenter.z + maxDimension
-    ); // Adjust z as necessary
-    this.camera.orthographicCamera.zoom = Math.min(
-      this.camera.orthographicCamera.right / boundingBoxSize.x,
-      this.camera.orthographicCamera.top / boundingBoxSize.y
-    );
-    this.camera.orthographicCamera.updateProjectionMatrix();
+    // // Adjust the camera to fit the bounding box
+    // this.updateCameraForScreenshot(boundingBoxSize, boundingBoxCenter);
 
     // Calculate screenshot width and height based on renderer aspect ratio
     const desiredHeight = 1080;
@@ -207,26 +152,28 @@ export default class ImageBox {
 
     // Screenshot in base64
     const dataUrl = this.renderer.instance.domElement.toDataURL("image/png");
-    const base64Image = dataUrl.split(",")[1]; // Remove the "data:image/png;base64," part
+    const base64Image = dataUrl.split(",")[1]; // Remove the "data:image/png;base64," prefix
 
-    // // Debug, Automatically download the screenshot as a PNG file
-    // const link = document.createElement("a");
-    // link.id = "debugDownloadImage";
-    // link.href = dataUrl;
-    // link.download = "screenshot.png"; // Specify the file name
-    // // Not appending the element to the document, only creating, no need to clean up
-    // link.click();
+    // Debug, Automatically download the screenshot as a PNG file
+    const link = document.createElement("a");
+    link.id = "debugDownloadImage";
+    link.href = dataUrl;
+    link.download = "screenshot.png"; // Specify the file name
+    // Not appending the element to the document, only creating, no need to clean up
+    link.click();
 
+    // TODO: reenable?
     // Set the target position and zoom to the same so the camera doesn't jerk and is in the correct place
-    this.camera.targetPostion.set(
-      boundingBoxCenter.x,
-      boundingBoxCenter.y,
-      boundingBoxCenter.z + maxDimension
-    ); // Adjust z as necessary
-    this.camera.targetZoom = Math.min(
-      this.camera.orthographicCamera.right / boundingBoxSize.x,
-      this.camera.orthographicCamera.top / boundingBoxSize.y
-    );
+    // this.camera.targetPostion.set(
+    //   boundingBoxCenter.x,
+    //   boundingBoxCenter.y,
+    //   boundingBoxCenter.z +
+    //     Math.max(boundingBoxSize.x, boundingBoxSize.y, boundingBoxSize.z)
+    // );
+    // this.camera.targetZoom = Math.min(
+    //   this.camera.orthographicCamera.right / boundingBoxSize.x,
+    //   this.camera.orthographicCamera.top / boundingBoxSize.y
+    // );
 
     // Reset render to original size
     this.renderer.instance.setSize(
@@ -234,15 +181,17 @@ export default class ImageBox {
       originalRendererSize.height
     );
 
-    // Send image to Google Vision at the end of the call to avoid zoom warp out effect
+    // Send image to Google Vision at the end of the call to avoid zoom warp out effect caused by delay from response
     await this.sendImageToVisionAPI(base64Image);
   }
 
   private resetImage() {
     // Remove the existing mesh, recreate and add the original mesh back to the scene
     this.scene.remove(this.mesh!);
+    // GtUtils.disposeMeshHelper(this.mesh!);
     this.mesh = new THREE.Mesh(this.geometry, this.materials);
-    // Reset TODO: cleanup
+
+    // Reset position and rotation before adding back to scene
     this.mesh.rotation.z = 0;
     this.targetRotation.x = 0;
     this.targetRotation.y = 0;
@@ -264,11 +213,8 @@ export default class ImageBox {
       return;
     }
 
-    const deltaX = event.movementX;
-    const deltaY = event.movementY;
-
-    this.targetRotation.x -= deltaY * this.rotationSpeed;
-    this.targetRotation.y -= deltaX * this.rotationSpeed;
+    this.targetRotation.x -= event.movementY * this.rotationSpeed;
+    this.targetRotation.y -= event.movementX * this.rotationSpeed;
   }
 
   private lockPointer(event: boolean) {
@@ -280,40 +226,59 @@ export default class ImageBox {
   }
 
   /* ----------------------------- Helper methods ----------------------------- */
+  private updateCameraForScreenshot(
+    boundingBoxSize: THREE.Vector3,
+    boundingBoxCenter: THREE.Vector3
+  ) {
+    const maxDimension = Math.max(
+      boundingBoxSize.x,
+      boundingBoxSize.y,
+      boundingBoxSize.z
+    );
+    this.camera.orthographicCamera.position.set(
+      boundingBoxCenter.x,
+      boundingBoxCenter.y,
+      boundingBoxCenter.z + maxDimension
+    );
+
+    this.camera.orthographicCamera.zoom = Math.min(
+      this.camera.orthographicCamera.right / boundingBoxSize.x,
+      this.camera.orthographicCamera.top / boundingBoxSize.y
+    );
+    this.camera.orthographicCamera.updateProjectionMatrix();
+  }
+
   private async sendImageToVisionAPI(base64Image: string) {
     const requestBody = {
       requests: [
         {
-          image: {
-            content: base64Image,
-          },
-          features: [
-            {
-              type: "DOCUMENT_TEXT_DETECTION",
-            },
-          ],
+          image: { content: base64Image },
+          features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
         },
       ],
     };
-    const response = await fetch(
-      `https://vision.googleapis.com/v1/images:annotate?key=${this.resources.apiKey}`,
-      {
-        method: "POST",
-        body: JSON.stringify(requestBody),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
-    const result = await response.json();
-    // // Debug, log fullText response from Vision
-    // console.log(
-    //   "Vision API Response:",
-    //   result.responses[0].fullTextAnnotation.text
-    // );
 
-    this.input.dashboardTextarea!.value =
-      result.responses[0].fullTextAnnotation.text;
+    try {
+      const response = await fetch(
+        `https://vision.googleapis.com/v1/images:annotate?key=${this.resources.apiKey}`,
+        {
+          method: "POST",
+          body: JSON.stringify(requestBody),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      const result = await response.json();
+
+      // TODO: remove after debug
+      console.log("vision result: ", result);
+
+      this.input.dashboardTextarea!.value =
+        result.responses[0].fullTextAnnotation.text;
+    } catch (error) {
+      console.error("Error sending image to Vision API:", error);
+    }
   }
 
   private convertRotation(rotationInRadians: number) {
@@ -354,12 +319,6 @@ export default class ImageBox {
       return;
     }
 
-    // // Mouse moving on x axis
-    // this.mesh.rotation.z = THREE.MathUtils.lerp(
-    //   this.mesh.rotation.z,
-    //   this.targetRotation.x,
-    //   this.lerpFactor
-    // );
     // Mouse moving on y axis
     this.mesh.rotation.z = THREE.MathUtils.lerp(
       this.mesh.rotation.z,
@@ -371,6 +330,7 @@ export default class ImageBox {
     this.imageRotation = this.convertRotation(this.mesh.rotation.z);
   }
 
+  // TODO: work on removing
   public worldToUV(
     worldCoord: THREE.Vector3,
     mesh: THREE.Mesh,
@@ -398,9 +358,11 @@ export default class ImageBox {
       return;
     }
 
-    this.scene.remove(this.mesh);
-    this.geometry.dispose();
+    // Mesh disposal
+    GtUtils.disposeMeshHelper(this.mesh);
 
+    // Deconstucted mesh components disposal
+    this.geometry.dispose();
     this.materials.forEach((texture) => {
       texture.dispose();
     });

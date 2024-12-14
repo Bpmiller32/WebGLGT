@@ -1,7 +1,6 @@
 import { defineComponent, PropType } from "vue";
 
 export default defineComponent({
-  name: "DebugButton",
   props: {
     isDebugEnabled: {
       type: Boolean as PropType<boolean>,

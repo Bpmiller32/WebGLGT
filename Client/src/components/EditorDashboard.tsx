@@ -1,5 +1,5 @@
 import Emitter from "../webgl/utils/eventEmitter";
-import { defineComponent, ref } from "vue";
+import { defineComponent, PropType, ref } from "vue";
 import Experience from "../webgl/experience";
 import { fillInForm, gotoNextImage } from "../apiHandler";
 import { db } from "../firebase";
@@ -11,7 +11,7 @@ import GroupTextArea from "./subcomponents/GroupTextArea";
 export default defineComponent({
   props: {
     apiUrl: {
-      type: String,
+      type: String as PropType<string>,
       required: true,
     },
   },
@@ -21,10 +21,9 @@ export default defineComponent({
     const imageNameRef = ref();
     const textAreaRef = ref();
 
+    // GL, api setup
     const experience = Experience.getInstance();
-
     let haveUpdatedFirebaseOnce = false;
-
     const imageDownloadCount = ref(0);
 
     // MailType tags
@@ -142,8 +141,8 @@ export default defineComponent({
         const newData = {
           imageName: imageNameRef.value.innerText,
           imageType: imageType,
-          timeOnImage: experience.world.imageBox?.stopwatch.elapsedTime,
-          rotation: experience.world.imageBox?.imageRotation,
+          timeOnImage: experience.world.imageContainer?.stopwatch.elapsedTime,
+          rotation: experience.world.imageContainer?.imageRotation,
           addressSubmitted: data.address,
           dateSubmitted: new Date(),
         };

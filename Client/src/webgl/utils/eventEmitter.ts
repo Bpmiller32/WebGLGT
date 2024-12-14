@@ -24,7 +24,7 @@ type EventMap = {
   test: void;
 
   // world events
-  changeClipBoxGroup: number;
+  changeSelectionGroup: number;
   switchCamera: void;
   stitchBoxes: void;
   screenshotImage: void;
