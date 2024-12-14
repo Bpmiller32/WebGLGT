@@ -242,6 +242,10 @@ export default class ImageBox {
     // Remove the existing mesh, recreate and add the original mesh back to the scene
     this.scene.remove(this.mesh!);
     this.mesh = new THREE.Mesh(this.geometry, this.materials);
+    // Reset TODO: cleanup
+    this.mesh.rotation.z = 0;
+    this.targetRotation.x = 0;
+    this.targetRotation.y = 0;
     this.scene.add(this.mesh);
 
     // Reset the camera

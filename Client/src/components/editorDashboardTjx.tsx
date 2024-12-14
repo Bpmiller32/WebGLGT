@@ -5,6 +5,7 @@ import { fillInForm, gotoNextImage } from "../apiHandler";
 import {
   ArrowUpCircleIcon,
   ArrowUturnLeftIcon,
+  BackwardIcon,
   ForwardIcon,
   MagnifyingGlassCircleIcon,
   ScissorsIcon,
@@ -29,6 +30,8 @@ export default defineComponent({
 
     let haveUpdatedFirebaseOnce = false;
 
+    const imageDownloadCount = ref(0);
+
     const isMpImage = ref(true); // Make this a default value
     const isBadImage = ref(false);
 
@@ -47,6 +50,9 @@ export default defineComponent({
 
       await FormHelper();
       await NextImageHelper();
+    });
+    Emitter.on("loadedFromApi", () => {
+      imageDownloadCount.value++;
     });
 
     /* ----------------------------- Template events ---------------------------- */
@@ -291,6 +297,11 @@ export default defineComponent({
           <ArrowUpCircleIcon class="h-5 w-5 text-gray-100 transition-colors group-hover:text-indigo-100 duration-300" />
         );
       }
+      if (buttonType === "Prev") {
+        return (
+          <BackwardIcon class="h-5 w-5 text-gray-100 transition-colors group-hover:text-indigo-100 duration-300" />
+        );
+      }
       if (buttonType === "Next") {
         return (
           <ForwardIcon class="h-5 w-5 text-gray-100 transition-colors group-hover:text-indigo-100 duration-300" />
@@ -335,6 +346,25 @@ export default defineComponent({
             <ArrowUturnLeftIcon class="h-5 w-5 text-gray-100 group-hover:text-indigo-100 duration-300" />
           );
 
+        case "Group0":
+          return (
+            <div class="flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-xs font-bold">
+              0
+            </div>
+          );
+        case "Group1":
+          return (
+            <div class="flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold">
+              1
+            </div>
+          );
+        case "Group2":
+          return (
+            <div class="flex items-center justify-center w-5 h-5 rounded-full bg-blue-500 text-white text-xs font-bold">
+              2
+            </div>
+          );
+
         default:
           break;
       }
@@ -342,28 +372,71 @@ export default defineComponent({
 
     /* ----------------------------- Render function ---------------------------- */
     return () => (
-      <article class="overflow-hidden pt-5 pl-5">
+      <article class="overflow-hidden mt-5 ml-5 p-4 bg-slate-800/85 rounded-2xl">
         {/* Filename, textarea, clipboard copy button */}
         <section class="w-[27rem]">
           <div class="flex justify-between items-center">
-            <label
-              id="gtImageName"
-              ref={imageNameRef}
-              for="comment"
-              class="mr-4 self-end overflow-hidden font-medium leading-6 text-gray-100 text-xs text-ellipsis"
-            ></label>
-            <div class="flex">
-              {NavButton("Send", true, false)}
-              {NavButton("Next", false, true)}
+            <div>
+              <div class="flex items-center w-full">
+                <p class="mr-1 font-medium text-gray-100 text-xs text-ellipsis">
+                  Image:
+                </p>
+                <p
+                  id="gtImageName"
+                  ref={imageNameRef}
+                  class="mr-4 self-end overflow-hidden font-medium text-gray-100 text-xs text-ellipsis"
+                />
+              </div>
+              <div class="mt-1 flex items-center w-full">
+                <p class="mr-1 font-medium text-gray-100 text-xs text-ellipsis">
+                  Download count:
+                </p>
+                <p class="mr-4 self-end overflow-hidden font-medium text-gray-100 text-xs text-ellipsis">
+                  {imageDownloadCount.value}
+                </p>
+              </div>
+            </div>
+            <div class="flex self-start">
+              {NavButton("Prev", true, false)}
+              {NavButton("Next", false, false)}
+              {NavButton("Send", false, true)}
             </div>
           </div>
-          <div class="mt-2">
-            <textarea
-              ref={textAreaRef}
-              rows="3"
-              id="guiTextArea"
-              class="bg-transparent text-gray-100 text-sm leading-6 resize-none w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600"
-            />
+          <div class="mt-4 mb-4">
+            <div class="flex pb-2">
+              {/* <div class="flex justify-center items-center text-white w-32 min-h-full">
+                PUR
+              </div> */}
+              <textarea
+                ref={textAreaRef}
+                rows="3"
+                id="guiTextArea"
+                class="bg-transparent text-gray-100 text-sm leading-6 resize-none w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600"
+              />
+              <div class="w-2 min-h-full rounded-sm ml-2 bg-green-500"></div>
+            </div>
+            <div class="flex pb-2">
+              {/* <div class="flex justify-center items-center text-white w-32 min-h-full">
+                FirstName
+              </div> */}
+              <textarea
+                rows="3"
+                id="guiTextArea"
+                class="bg-transparent text-gray-100 text-sm leading-6 resize-none w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600"
+              />
+              <div class="w-2 min-h-full rounded-sm ml-2 bg-red-500"></div>
+            </div>
+            <div class="flex">
+              {/* <div class="flex justify-center items-center text-white w-32 min-h-full">
+                LastName
+              </div> */}
+              <textarea
+                rows="3"
+                id="guiTextArea"
+                class="bg-transparent text-gray-100 text-sm leading-6 resize-none w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600"
+              />
+              <div class="w-2 min-h-full rounded-sm ml-2 bg-blue-500"></div>
+            </div>
           </div>
         </section>
 
@@ -371,6 +444,7 @@ export default defineComponent({
         <section class="mt-2 flex justify-between items-center">
           <div class="flex">
             {MailTypeButton("MP", isMpImage.value, true, false)}
+            {MailTypeButton("HW", isMpImage.value, false, false)}
             {MailTypeButton("Bad", isBadImage.value, false, true)}
           </div>
           <div class="flex">
@@ -381,9 +455,14 @@ export default defineComponent({
         </section>
 
         {/* Special mail designations */}
-        <section class="mt-2 flex items-center">
-          <div class="flex">
+        <section class="mt-2 flex justify-between items-center">
+          <div class="flex gap-2">
             {MailTypeButton("Vendor Only", isVendorOnly.value, true, true)}
+          </div>
+          <div class="flex self-start">
+            {ActionButton("Group0", true, false)}
+            {ActionButton("Group1", false, false)}
+            {ActionButton("Group2", false, true)}
           </div>
         </section>
       </article>

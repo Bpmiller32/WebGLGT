@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@heroicons/vue": "^2.1.5",
-    "@vueuse/motion": "^2.2.5",
     "axios": "^1.7.7",
     "firebase": "^10.13.1",
     "mitt": "^3.0.1",

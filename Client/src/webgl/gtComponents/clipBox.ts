@@ -254,7 +254,7 @@ export default class ClipBox {
           color: new THREE.Color(0x00ff00),
           wireframe: false,
           transparent: true,
-          opacity: 0.35,
+          opacity: 0,
         });
         break;
       case 1:
@@ -262,7 +262,7 @@ export default class ClipBox {
           color: new THREE.Color(0xff0000),
           wireframe: false,
           transparent: true,
-          opacity: 0.35,
+          opacity: 0,
         });
         break;
       case 2:
@@ -270,7 +270,7 @@ export default class ClipBox {
           color: new THREE.Color(0x0000ff),
           wireframe: false,
           transparent: true,
-          opacity: 0.35,
+          opacity: 0,
         });
         break;
 
@@ -279,7 +279,7 @@ export default class ClipBox {
           color: new THREE.Color(0xffffff),
           wireframe: false,
           transparent: true,
-          opacity: 0.35,
+          opacity: 0,
         });
         break;
     }
