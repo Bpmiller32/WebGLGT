@@ -44,6 +44,8 @@ export default class ClipBox {
 
   public combinedBoundingBox!: THREE.Box3;
 
+  private isImagesJoined!: boolean;
+
   private targetRotation!: THREE.Vector2;
 
   constructor() {
@@ -106,17 +108,20 @@ export default class ClipBox {
     this.boxSizeThreshold = 0.025;
     this.combinedBoundingBox = new THREE.Box3();
 
+    this.isImagesJoined = false;
+
     this.targetRotation = new THREE.Vector2(0, 0);
   }
 
   /* ------------------------------ Event methods ----------------------------- */
   private mouseDown(event: MouseEvent) {
-    // Do not continue if interacting with gui/login page, are not a left click, or are in image adjust mode
+    // Do not continue if interacting with gui/login page, are not a left click, are in image adjust mode, have already joined images once
     if (
       this.input.dashboardGuiGlobal?.contains(event.target as HTMLElement) ||
       this.input.loginGuiGlobal?.contains(event.target as HTMLElement) ||
       event.button !== 0 ||
-      this.input.isShiftLeftPressed
+      this.input.isShiftLeftPressed ||
+      this.isImagesJoined
     ) {
       return;
     }
@@ -289,9 +294,10 @@ export default class ClipBox {
 
   private stitchBoxes() {
     if (
-      this.clipBoxes0.length === 0 &&
-      this.clipBoxes1.length === 0 &&
-      this.clipBoxes2.length === 0
+      (this.clipBoxes0.length === 0 &&
+        this.clipBoxes1.length === 0 &&
+        this.clipBoxes2.length === 0) ||
+      this.isImagesJoined
     ) {
       return;
     }
@@ -343,6 +349,9 @@ export default class ClipBox {
 
     // Reset clipboxGroup and visual cue
     this.changeClipBoxGroup(2);
+
+    // Set gate for joining images only once
+    this.isImagesJoined = true;
   }
 
   /* ----------------------------- Helper methods ----------------------------- */
@@ -1001,5 +1010,8 @@ export default class ClipBox {
 
       clipBoxGroup.length = 0;
     });
+
+    // Reset gate for joining images only once
+    this.isImagesJoined = false;
   }
 }

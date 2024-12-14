@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from "vue";
 import Experience from "./webgl/experience.ts";
-import EditorDashboard from "./components/editorDashboardTjx.tsx";
-import LoginPage from "./components/loginPage.tsx";
+import EditorDashboard from "./components/EditorDashboard.tsx";
+import LoginPage from "./components/LoginPage.tsx";
 import {
   downloadImage,
   getApiKey,
   startBrowserInstance,
 } from "./apiHandler.ts";
-import StatusAlert from "./components/statusAlert.tsx";
+import StatusNotification from "./components/StatusNotification.tsx";
 import Emitter from "./webgl/utils/eventEmitter.ts";
 
 /* -------------------------------- App setup ------------------------------- */
@@ -32,7 +32,7 @@ onUnmounted(() => {
 
 /* --------------------------------- Events --------------------------------- */
 Emitter.on("startApp", async () => {
-  // Show statusAlert for loading in case of long browser initialize and login
+  // Show statusNotification for loading in case of long browser initialize and login
   Emitter.emit("indicateLoading");
 
   // Initialize browser on the server
@@ -84,7 +84,7 @@ Emitter.on("startApp", async () => {
     enterActiveClass="duration-[2500ms]"
   >
     <main v-show="isAppStarted">
-      <StatusAlert class="absolute top-0 left-1/2 -translate-x-1/2" />
+      <StatusNotification class="absolute top-0 left-1/2 -translate-x-1/2" />
 
       <EditorDashboard id="gui" class="absolute" :apiUrl="apiUrl" />
 

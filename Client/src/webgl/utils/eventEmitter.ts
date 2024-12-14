@@ -34,6 +34,7 @@ type EventMap = {
   loadedFromApi: void;
   fillInForm: void;
   gotoNextImage: void;
+  gotoPrevImage: void;
 };
 
 // Create an emitter instance

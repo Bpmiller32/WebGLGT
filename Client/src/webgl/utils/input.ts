@@ -95,7 +95,7 @@ export default class Input {
     this.loginGuiGlobal = document.getElementById("loginPage");
 
     this.dashboardTextarea = document.getElementById(
-      "guiTextArea"
+      "guiTextArea0"
     ) as HTMLTextAreaElement;
     this.dashboardImageName = document.getElementById(
       "gtImageName"
