@@ -32,6 +32,7 @@ type EventMap = {
   badImage: void;
   // api events/template events
   loadedFromApi: void;
+  loadedFromFile: void;
   fillInForm: void;
   gotoNextImage: void;
   gotoPrevImage: void;

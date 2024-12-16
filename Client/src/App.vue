@@ -52,11 +52,11 @@ Emitter.on("startApp", async () => {
     return;
   }
 
-  // Get Vision API key
+  // Get Vision API key from backend
   webglExperience.resources.apiKey = await getApiKey(apiUrl);
 
   // Start image load into webgl scene as a texture, resourceLoader will trigger an event when finished loading
-  webglExperience.resources.loadFromApi(image.imageBlob);
+  webglExperience.resources.loadGtImageFromApi(image.imageBlob);
 
   // Set the image's name in the gui
   webglExperience.input.dashboardImageName!.innerText =

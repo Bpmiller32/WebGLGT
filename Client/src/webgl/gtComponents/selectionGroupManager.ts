@@ -12,7 +12,7 @@ import Input from "../utils/input";
 import World from "../levels/world";
 import { CSG } from "three-csg-ts";
 import Debug from "../utils/debug";
-import { debugSelectionGroupManager } from "../utils/debug/debugSelectionGroupManager";
+import { debugSelectionGroupManager } from "../utils/debug/debugClipBox";
 import GtUtils from "../utils/gtUtils";
 
 interface SelectionGroup {
@@ -219,6 +219,7 @@ export default class SelectionGroupManager {
       size.z < this.boxSizeThreshold
     ) {
       this.scene.remove(this.activeMesh!);
+      GtUtils.disposeMeshHelper(this.activeMesh);
       return;
     }
 
@@ -364,6 +365,7 @@ export default class SelectionGroupManager {
 
     // Remove the old imageContainer so it doesn't overlap with the combined croppedMesh, set combined croppedMesh to imageContainer
     this.scene.remove(this.world.imageContainer!.mesh!);
+    GtUtils.disposeMeshHelper(this.world.imageContainer!.mesh!);
     this.world.imageContainer!.mesh = combinedMesh!;
     this.scene.add(combinedMesh!);
 
@@ -807,6 +809,7 @@ export default class SelectionGroupManager {
     [this.selectionGroup0, this.selectionGroup1, this.selectionGroup2].forEach(
       (selectionGroup) => {
         selectionGroup.forEach((selection) => {
+          this.scene.remove(selection);
           GtUtils.disposeMeshHelper(selection);
         });
 

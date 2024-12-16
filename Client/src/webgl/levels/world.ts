@@ -10,6 +10,7 @@ import Debug from "../utils/debug.ts";
 import SelectionGroupManager from "../gtComponents/selectionGroupManager.ts";
 import ImageContainer from "../gtComponents/imageContainer.ts";
 import { debugWorld, debugWorldUpdate } from "../utils/debug/debugWorld.ts";
+import DelimiterImage from "../gtComponents/delimiterImage.ts";
 
 export default class World {
   public experience!: Experience;
@@ -20,6 +21,7 @@ export default class World {
 
   public imageContainer?: ImageContainer;
   public selectionGroupManager?: SelectionGroupManager;
+  public delimiterImages!: DelimiterImage[];
 
   constructor() {
     // Init
@@ -29,6 +31,11 @@ export default class World {
     Emitter.on("appReady", () => {
       this.imageContainer = new ImageContainer();
       this.selectionGroupManager = new SelectionGroupManager();
+    });
+
+    Emitter.on("loadedFromFile", () => {
+      this.delimiterImages.push(new DelimiterImage());
+      this.delimiterImages.push(new DelimiterImage());
     });
 
     Emitter.on("loadedFromApi", () => {
@@ -58,6 +65,7 @@ export default class World {
 
     // Class fields
     this.renderObjectCount = 0;
+    this.delimiterImages = [];
   }
 
   public update() {
@@ -73,5 +81,8 @@ export default class World {
   public destroy() {
     this.imageContainer?.destroy();
     this.selectionGroupManager?.destroy();
+    this.delimiterImages.forEach((delimiterImage) => {
+      delimiterImage.destroy();
+    });
   }
 }

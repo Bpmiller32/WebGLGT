@@ -17,9 +17,16 @@ export default class ResourceLoader {
     this.textureLoader = new THREE.TextureLoader();
   }
 
-  public loadFromApi(imageUrl?: string) {
-    this.textureLoader?.load(imageUrl!, (texture) => {
-      this.items["apiImage"] = texture;
+  public loadDelimiterImage() {
+    this.textureLoader?.load("/delimiterImage.png", (file) => {
+      this.items["delimiterImage"] = file;
+      Emitter.emit("loadedFromFile");
+    });
+  }
+
+  public loadGtImageFromApi(imageUrl?: string) {
+    this.textureLoader?.load(imageUrl!, (image) => {
+      this.items["apiImage"] = image;
       Emitter.emit("loadedFromApi");
     });
   }

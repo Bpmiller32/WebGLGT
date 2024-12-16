@@ -166,7 +166,7 @@ export default defineComponent({
       haveUpdatedFirebaseOnce = false;
 
       // Start image load into webgl scene as a texture, resourceLoader will trigger an event when finished loading
-      experience.resources.loadFromApi(image.imageBlob);
+      experience.resources.loadGtImageFromApi(image.imageBlob);
 
       // Set the image's name in the gui
       imageNameRef.value.innerText = image.imageName + ".jpg";

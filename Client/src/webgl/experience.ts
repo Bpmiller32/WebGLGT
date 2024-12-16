@@ -55,6 +55,9 @@ export default class Experience {
     this.renderer = new Renderer();
     this.world = new World();
 
+    // Load resources from file
+    this.resources.loadDelimiterImage();
+
     // Sizes resize event
     Emitter.on("resize", () => {
       this.camera.resize();

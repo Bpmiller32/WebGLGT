@@ -103,7 +103,7 @@ export default class ImageContainer {
       boxWidth = boxHeight / textureAspectRatio;
     }
 
-    this.geometry = new THREE.BoxGeometry(boxHeight, boxWidth, boxDepth);
+    this.geometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
   }
 
   private setMaterial() {
@@ -133,15 +133,6 @@ export default class ImageContainer {
     const originalRendererSize = new THREE.Vector2();
     this.renderer.instance.getSize(originalRendererSize);
 
-    // TODO: reenable?, selectionGroupManager already positions things in frame
-    // // Compute the bounding box of the mesh
-    // const boundingBox = new THREE.Box3().setFromObject(this.mesh!);
-    // const boundingBoxSize = boundingBox.getSize(new THREE.Vector3());
-    // const boundingBoxCenter = boundingBox.getCenter(new THREE.Vector3());
-
-    // // Adjust the camera to fit the bounding box
-    // this.updateCameraForScreenshot(boundingBoxSize, boundingBoxCenter);
-
     // Calculate screenshot width and height based on renderer aspect ratio
     const desiredHeight = 1080;
     const desiredWidth = (desiredHeight * this.sizes.width) / this.sizes.height;
@@ -162,19 +153,6 @@ export default class ImageContainer {
     // Not appending the element to the document, only creating, no need to clean up
     link.click();
 
-    // TODO: reenable?
-    // Set the target position and zoom to the same so the camera doesn't jerk and is in the correct place
-    // this.camera.targetPostion.set(
-    //   boundingBoxCenter.x,
-    //   boundingBoxCenter.y,
-    //   boundingBoxCenter.z +
-    //     Math.max(boundingBoxSize.x, boundingBoxSize.y, boundingBoxSize.z)
-    // );
-    // this.camera.targetZoom = Math.min(
-    //   this.camera.orthographicCamera.right / boundingBoxSize.x,
-    //   this.camera.orthographicCamera.top / boundingBoxSize.y
-    // );
-
     // Reset render to original size
     this.renderer.instance.setSize(
       originalRendererSize.width,
@@ -188,7 +166,7 @@ export default class ImageContainer {
   private resetImage() {
     // Remove the existing mesh, recreate and add the original mesh back to the scene
     this.scene.remove(this.mesh!);
-    // GtUtils.disposeMeshHelper(this.mesh!);
+    GtUtils.disposeMeshHelper(this.mesh!);
     this.mesh = new THREE.Mesh(this.geometry, this.materials);
 
     // Reset position and rotation before adding back to scene
@@ -226,28 +204,6 @@ export default class ImageContainer {
   }
 
   /* ----------------------------- Helper methods ----------------------------- */
-  private updateCameraForScreenshot(
-    boundingBoxSize: THREE.Vector3,
-    boundingBoxCenter: THREE.Vector3
-  ) {
-    const maxDimension = Math.max(
-      boundingBoxSize.x,
-      boundingBoxSize.y,
-      boundingBoxSize.z
-    );
-    this.camera.orthographicCamera.position.set(
-      boundingBoxCenter.x,
-      boundingBoxCenter.y,
-      boundingBoxCenter.z + maxDimension
-    );
-
-    this.camera.orthographicCamera.zoom = Math.min(
-      this.camera.orthographicCamera.right / boundingBoxSize.x,
-      this.camera.orthographicCamera.top / boundingBoxSize.y
-    );
-    this.camera.orthographicCamera.updateProjectionMatrix();
-  }
-
   private async sendImageToVisionAPI(base64Image: string) {
     const requestBody = {
       requests: [
