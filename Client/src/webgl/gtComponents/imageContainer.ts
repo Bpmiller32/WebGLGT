@@ -14,6 +14,7 @@ import Debug from "../utils/debug";
 import Stopwatch from "../utils/stopWatch";
 import { debugImageContainer } from "../utils/debug/debugImageContainer";
 import GtUtils from "../utils/gtUtils";
+import World from "../levels/world";
 
 export default class ImageContainer {
   private experience!: Experience;
@@ -23,6 +24,7 @@ export default class ImageContainer {
   private camera!: Camera;
   private sizes!: Sizes;
   public input!: Input;
+  private world!: World;
   public debug?: Debug;
 
   public geometry!: THREE.BoxGeometry;
@@ -30,6 +32,7 @@ export default class ImageContainer {
   public mesh?: THREE.Mesh;
 
   private rotationSpeed!: number;
+  private isRotationDisabled!: boolean;
   private lerpFactor!: number;
   public targetRotation!: THREE.Vector2;
 
@@ -42,11 +45,15 @@ export default class ImageContainer {
     this.initializeFields();
 
     // Events
+    Emitter.on("stitchBoxes", () => {
+      this.isRotationDisabled = true;
+    });
     Emitter.on("screenshotImage", () => {
       this.screenshotImage();
     });
     Emitter.on("resetImage", () => {
       this.resetImage();
+      this.isRotationDisabled = false;
     });
     Emitter.on("mouseMove", (event) => {
       // TODO: debug
@@ -70,10 +77,12 @@ export default class ImageContainer {
     this.scene = this.experience.scene;
     this.camera = this.experience.camera;
     this.sizes = this.experience.sizes;
+    this.world = this.experience.world;
     this.input = this.experience.input;
 
     // Class fields
     this.rotationSpeed = 0.005;
+    this.isRotationDisabled = false;
     this.lerpFactor = 1;
     // TODO: fix the rotation lerp on selectionGroupManager to sync with this
     // this.lerpFactor = 0.1;
@@ -137,6 +146,11 @@ export default class ImageContainer {
     const desiredHeight = 1080;
     const desiredWidth = (desiredHeight * this.sizes.width) / this.sizes.height;
 
+    // Unhide the delimiterImages if present in the frame
+    this.world.delimiterImages.forEach((delimiterImage) => {
+      delimiterImage.mesh!.visible = true;
+    });
+
     // Render and take the screenshot
     this.renderer.instance.setSize(desiredWidth, desiredHeight); // Set the desired resolution
     this.renderer.instance.render(this.scene, this.camera.orthographicCamera);
@@ -158,6 +172,11 @@ export default class ImageContainer {
       originalRendererSize.width,
       originalRendererSize.height
     );
+
+    // Rehide the delimiterImages if present in the frame
+    this.world.delimiterImages.forEach((delimiterImage) => {
+      delimiterImage.mesh!.visible = false;
+    });
 
     // Send image to Google Vision at the end of the call to avoid zoom warp out effect caused by delay from response
     await this.sendImageToVisionAPI(base64Image);
@@ -181,13 +200,19 @@ export default class ImageContainer {
     this.camera.orthographicCamera.zoom = 1;
     this.camera.targetZoom = 1;
 
-    // Reset the textArea in the GUI
-    this.input.dashboardTextarea!.value = "";
+    // Reset the textAreas in the GUI
+    this.input.dashboardTextarea0!.value = "";
+    this.input.dashboardTextarea1!.value = "";
+    this.input.dashboardTextarea2!.value = "";
   }
 
   private mouseMove(event: MouseEvent) {
     // Do not continue if not in image adjust mode or regardless if you in IAM are but pressing right click (move over rotate)
-    if (!this.input.isShiftLeftPressed || this.input.isRightClickPressed) {
+    if (
+      !this.input.isShiftLeftPressed ||
+      this.input.isRightClickPressed ||
+      this.isRotationDisabled
+    ) {
       return;
     }
 
@@ -228,12 +253,48 @@ export default class ImageContainer {
       const result = await response.json();
 
       // TODO: remove after debug
-      console.log("vision result: ", result);
+      // console.log("vision result: ", result);
 
-      this.input.dashboardTextarea!.value =
-        result.responses[0].fullTextAnnotation.text;
+      // this.input.dashboardTextarea!.value =
+      //   result.responses[0].fullTextAnnotation.text;
+
+      this.separateResultByDelimiter(
+        result.responses[0].fullTextAnnotation.text
+      );
     } catch (error) {
       console.error("Error sending image to Vision API:", error);
+    }
+  }
+
+  private separateResultByDelimiter(fullResultText: string) {
+    // Define the delimiter in the image
+    const delimiter = "###############";
+
+    // Split the string into groups
+    const groups = fullResultText.split(delimiter).map((group) => group.trim());
+
+    // Reference dashboard text areas
+    const dashboardTextAreas: HTMLTextAreaElement[] = [
+      document.getElementById("dashboardTextarea0") as HTMLTextAreaElement,
+      document.getElementById("dashboardTextarea1") as HTMLTextAreaElement,
+      document.getElementById("dashboardTextarea2") as HTMLTextAreaElement,
+    ];
+
+    // Assign groups to text areas
+    groups.forEach((group, index) => {
+      const textArea = dashboardTextAreas[index];
+      if (textArea) {
+        textArea.value = group;
+      }
+    });
+
+    // Clear unused text areas
+    for (let i = groups.length; i < dashboardTextAreas.length; i++) {
+      const textArea = dashboardTextAreas[i];
+      if (textArea) {
+        // Clear the value for unused text areas
+        textArea.value = "";
+      }
     }
   }
 
@@ -266,6 +327,12 @@ export default class ImageContainer {
 
     this.stopwatch.reset();
     this.stopwatch.start();
+
+    this.input.dashboardTextarea0!.value = "";
+    this.input.dashboardTextarea1!.value = "";
+    this.input.dashboardTextarea2!.value = "";
+
+    this.isRotationDisabled = false;
   }
 
   public update() {
@@ -315,6 +382,7 @@ export default class ImageContainer {
     }
 
     // Mesh disposal
+    this.scene.remove(this.mesh);
     GtUtils.disposeMeshHelper(this.mesh);
 
     // Deconstucted mesh components disposal

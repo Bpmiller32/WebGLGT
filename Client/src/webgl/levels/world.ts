@@ -48,6 +48,10 @@ export default class World {
 
       this.camera.targetPostion.set(0, 0, 10);
       this.camera.targetZoom = 1;
+
+      this.delimiterImages.forEach((delimiterImage) => {
+        delimiterImage.resetPosition();
+      });
     });
 
     // Debug

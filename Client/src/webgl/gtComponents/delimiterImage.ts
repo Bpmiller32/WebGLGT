@@ -16,6 +16,8 @@ export default class DelimiterImage {
   public materials!: THREE.MeshBasicMaterial[];
   public mesh?: THREE.Mesh;
 
+  private initialPosition!: THREE.Vector3;
+
   constructor() {
     // Init
     this.initializeFields();
@@ -30,6 +32,8 @@ export default class DelimiterImage {
     this.experience = Experience.getInstance();
     this.resources = this.experience.resources;
     this.scene = this.experience.scene;
+
+    this.initialPosition = new THREE.Vector3(0, 0, 20);
   }
 
   /* ---------------------------- Instance methods ---------------------------- */
@@ -38,8 +42,9 @@ export default class DelimiterImage {
       this.resources.items.delimiterImage.image.width /
       this.resources.items.delimiterImage.image.height;
 
+    // Adjust size of mesh in scene that texture will be applied to. This will effect spacing between selectionGroups
     const boxDepth = 1;
-    const boxHeight = 1;
+    const boxHeight = 0.05;
     let boxWidth = 1;
 
     if (textureAspectRatio >= 1) {
@@ -68,14 +73,18 @@ export default class DelimiterImage {
     // Create mesh, add to scene, update matrix local position for CSG
     this.mesh = new THREE.Mesh(this.geometry, this.materials);
 
-    // Move mesh behind the camera
-    this.mesh.position.setY(2);
-    // this.mesh.position.setZ(20);
+    // Move mesh behind the camera for initial position
+    this.mesh.position.copy(this.initialPosition);
 
     this.scene.add(this.mesh);
 
     // // Fix for debug since mesh is not always set
     // this.imageRotation = this.convertRotation(this.mesh.rotation.z);
+  }
+
+  public resetPosition() {
+    // Move mesh behind the camera for initial position
+    this.mesh!.position.copy(this.initialPosition);
   }
 
   public destroy() {

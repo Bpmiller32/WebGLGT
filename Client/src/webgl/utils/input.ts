@@ -49,7 +49,9 @@ export default class Input {
   public dashboardGuiGlobal: HTMLElement | null;
   public loginGuiGlobal: HTMLElement | null;
 
-  public dashboardTextarea: HTMLTextAreaElement | null;
+  public dashboardTextarea0: HTMLTextAreaElement | null;
+  public dashboardTextarea1: HTMLTextAreaElement | null;
+  public dashboardTextarea2: HTMLTextAreaElement | null;
   public dashboardImageName: HTMLLabelElement | null;
 
   public keys: Key[];
@@ -94,9 +96,16 @@ export default class Input {
     this.dashboardGuiGlobal = document.getElementById("gui");
     this.loginGuiGlobal = document.getElementById("loginPage");
 
-    this.dashboardTextarea = document.getElementById(
-      "guiTextArea0"
+    this.dashboardTextarea0 = document.getElementById(
+      "dashboardTextarea0"
     ) as HTMLTextAreaElement;
+    this.dashboardTextarea1 = document.getElementById(
+      "dashboardTextarea1"
+    ) as HTMLTextAreaElement;
+    this.dashboardTextarea2 = document.getElementById(
+      "dashboardTextarea2"
+    ) as HTMLTextAreaElement;
+
     this.dashboardImageName = document.getElementById(
       "gtImageName"
     ) as HTMLLabelElement;

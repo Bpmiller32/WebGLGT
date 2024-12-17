@@ -232,11 +232,11 @@ export default defineComponent({
         <section class="mt-4 mb-4">
           <GroupTextArea
             color="green"
-            id="guiTextArea0"
+            id="dashboardTextarea0"
             textAreaRef={textAreaRef}
           />
-          <GroupTextArea color="red" id="guiTextArea0" />
-          <GroupTextArea color="blue" id="guiTextArea0" />
+          <GroupTextArea color="red" id="dashboardTextarea1" />
+          <GroupTextArea color="blue" id="dashboardTextarea2" />
         </section>
 
         {/* Mail type, Image Action buttons */}

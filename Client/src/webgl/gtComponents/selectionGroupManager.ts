@@ -71,6 +71,9 @@ export default class SelectionGroupManager {
     });
     Emitter.on("resetImage", () => {
       this.destroy();
+      this.world.delimiterImages.forEach((delimiterImage) => {
+        delimiterImage.resetPosition();
+      });
     });
 
     // Debug
@@ -311,7 +314,7 @@ export default class SelectionGroupManager {
     let combinedMesh: THREE.Mesh | null = null;
 
     // Stack the meshes of the groups
-    meshGroups.forEach((group) => {
+    meshGroups.forEach((group, index) => {
       // Create the cropped mesh and calculate its height
       group.croppedMesh = this.createCropFromSelectionGroup(group.selections);
       group.croppedMeshHeight = this.getMeshHeight(group.croppedMesh);
@@ -323,34 +326,6 @@ export default class SelectionGroupManager {
       // Update total height for the next mesh
       totalHeightToAdd += group.croppedMeshHeight;
 
-      /* ------------------------------------ a ----------------------------------- */
-      // TODO: remove after debug
-      // Example usage
-      // Store the render's resolution
-      const originalRendererSize = new THREE.Vector2();
-      this.experience.renderer.instance.getSize(originalRendererSize);
-
-      const desiredHeight = 1080;
-      const desiredWidth =
-        (desiredHeight * this.sizes.width) / this.sizes.height;
-
-      this.experience.renderer.instance.setSize(desiredWidth, desiredHeight); // Set screenshot resolution
-
-      const screenBoundingBoxes = this.getScreenBoundingBox(
-        group.croppedMesh,
-        this.camera.orthographicCamera,
-        desiredWidth,
-        desiredHeight
-      );
-      console.log("screenBoundingBoxes", screenBoundingBoxes); // Array of bounding boxes for each mesh
-
-      // Reset render to original size
-      this.experience.renderer.instance.setSize(
-        originalRendererSize.width,
-        originalRendererSize.height
-      );
-      /* ------------------------------------ a ----------------------------------- */
-
       // Combine the current mesh with the previous ones using CSG.union()
       if (combinedMesh === null) {
         // If it's the first mesh, initialize the combined mesh
@@ -360,6 +335,27 @@ export default class SelectionGroupManager {
         combinedMesh.updateMatrix();
         group.croppedMesh.updateMatrix();
         combinedMesh = CSG.union(combinedMesh, group.croppedMesh);
+      }
+
+      // Add a DelimiterImage mesh between croppedMeshes, if applicable
+      if (index < meshGroups.length - 1) {
+        const delimiterImage = this.world.delimiterImages[index];
+
+        if (delimiterImage && delimiterImage.mesh) {
+          // Calculate the delimiter image height
+          const delimiterHeight = this.getMeshHeight(delimiterImage.mesh);
+
+          // Position the delimiterImage mesh
+          delimiterImage.mesh.position.y =
+            totalHeightToAdd + delimiterHeight / 2;
+          delimiterImage.mesh.position.z = 0;
+
+          // Make mesh invisible until screenshot
+          // delimiterImage.mesh.visible = false;
+
+          // Update total height for the next mesh
+          totalHeightToAdd += delimiterHeight;
+        }
       }
     });
 
@@ -783,6 +779,7 @@ export default class SelectionGroupManager {
   }
 
   public destroyVisualCueMesh() {
+    this.scene.remove(this.visualCueMesh);
     GtUtils.disposeMeshHelper(this.visualCueMesh);
   }
 
