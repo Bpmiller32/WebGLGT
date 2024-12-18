@@ -11,6 +11,7 @@ import SelectionGroupManager from "../gtComponents/selectionGroupManager.ts";
 import ImageContainer from "../gtComponents/imageContainer.ts";
 import { debugWorld, debugWorldUpdate } from "../utils/debug/debugWorld.ts";
 import DelimiterImage from "../gtComponents/delimiterImage.ts";
+import VisualCueManager from "../gtComponents/visualCueManager.ts";
 
 export default class World {
   public experience!: Experience;
@@ -21,6 +22,7 @@ export default class World {
 
   public imageContainer?: ImageContainer;
   public selectionGroupManager?: SelectionGroupManager;
+  public visualCueManager?: VisualCueManager;
   public delimiterImages!: DelimiterImage[];
 
   constructor() {
@@ -31,6 +33,7 @@ export default class World {
     Emitter.on("appReady", () => {
       this.imageContainer = new ImageContainer();
       this.selectionGroupManager = new SelectionGroupManager();
+      this.visualCueManager = new VisualCueManager();
     });
 
     Emitter.on("loadedFromFile", () => {
@@ -38,13 +41,19 @@ export default class World {
       this.delimiterImages.push(new DelimiterImage());
     });
 
+    Emitter.on("mouseDown", (event: MouseEvent) => {
+      // Update visual cue position and show
+      this.visualCueManager?.setPositionAndShow(event);
+    });
+
     Emitter.on("loadedFromApi", () => {
       this.imageContainer?.destroy();
       this.imageContainer?.setNewImage();
 
-      this.selectionGroupManager?.destroyVisualCueMesh();
       this.selectionGroupManager?.destroy();
-      this.selectionGroupManager?.setVisualCueMesh();
+
+      this.visualCueManager?.destroy();
+      this.visualCueManager?.createVisualCueMesh();
 
       this.camera.targetPostion.set(0, 0, 10);
       this.camera.targetZoom = 1;
@@ -52,6 +61,10 @@ export default class World {
       this.delimiterImages.forEach((delimiterImage) => {
         delimiterImage.resetPosition();
       });
+    });
+
+    Emitter.on("changeSelectionGroup", (groupNumber) => {
+      this.visualCueManager?.changeColor(groupNumber);
     });
 
     // Debug
@@ -79,12 +92,13 @@ export default class World {
     }
 
     this.imageContainer?.update();
-    this.selectionGroupManager?.update();
+    this.visualCueManager?.update();
   }
 
   public destroy() {
     this.imageContainer?.destroy();
     this.selectionGroupManager?.destroy();
+    this.visualCueManager?.destroy();
     this.delimiterImages.forEach((delimiterImage) => {
       delimiterImage.destroy();
     });

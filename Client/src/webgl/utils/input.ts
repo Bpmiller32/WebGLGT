@@ -412,9 +412,21 @@ export default class Input {
     });
 
     // Prevent the window scrolling down when using mouse wheel
-    window.addEventListener("wheel", (event) => event.preventDefault(), {
-      passive: false,
-    });
+    window.addEventListener(
+      "wheel",
+      (event) => {
+        // Check if the event target is an HTMLTextAreaElement in the gui
+        if (event.target instanceof HTMLTextAreaElement) {
+          // Allow scrolling inside the textarea
+          return;
+        }
+
+        event.preventDefault();
+      },
+      {
+        passive: false,
+      }
+    );
   }
 
   /* ------------------------------ Tick methods ------------------------------ */

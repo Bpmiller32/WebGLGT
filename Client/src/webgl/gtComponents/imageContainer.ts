@@ -30,6 +30,7 @@ export default class ImageContainer {
   public geometry!: THREE.BoxGeometry;
   public materials!: THREE.MeshBasicMaterial[];
   public mesh?: THREE.Mesh;
+  public image: any;
 
   private rotationSpeed!: number;
   private isRotationDisabled!: boolean;
@@ -184,7 +185,6 @@ export default class ImageContainer {
 
   private resetImage() {
     // Remove the existing mesh, recreate and add the original mesh back to the scene
-    this.scene.remove(this.mesh!);
     GtUtils.disposeMeshHelper(this.mesh!);
     this.mesh = new THREE.Mesh(this.geometry, this.materials);
 
@@ -319,6 +319,8 @@ export default class ImageContainer {
 
   /* ------------------------------ Tick methods ------------------------------ */
   public setNewImage() {
+    this.image = this.resources.items.apiImage;
+
     this.setGeometry();
     this.setMaterial();
     this.setMesh();
@@ -382,13 +384,10 @@ export default class ImageContainer {
     }
 
     // Mesh disposal
-    this.scene.remove(this.mesh);
     GtUtils.disposeMeshHelper(this.mesh);
 
     // Deconstucted mesh components disposal
     this.geometry.dispose();
-    this.materials.forEach((texture) => {
-      texture.dispose();
-    });
+    GtUtils.disposeMaterialHelper(this.materials);
   }
 }

@@ -10,6 +10,10 @@ export const debugSelectionGroupManager = (
   selectionGroupManagerDebug?.open();
 
   selectionGroupManagerDebug
+    ?.add(selectionGroupManager, "activeSelectionGroup")
+    .name("active group")
+    .listen();
+  selectionGroupManagerDebug
     ?.add(selectionGroupManager.selectionGroup0, "length")
     .name("# of group 0")
     .listen();
@@ -20,9 +24,5 @@ export const debugSelectionGroupManager = (
   selectionGroupManagerDebug
     ?.add(selectionGroupManager.selectionGroup2, "length")
     .name("# of group 2")
-    .listen();
-  selectionGroupManagerDebug
-    ?.add(selectionGroupManager, "activeSelectionGroup")
-    .name("active group")
     .listen();
 };

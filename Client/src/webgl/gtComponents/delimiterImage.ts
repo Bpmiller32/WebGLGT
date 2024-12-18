@@ -97,8 +97,6 @@ export default class DelimiterImage {
 
     // Deconstucted mesh components disposal
     this.geometry.dispose();
-    this.materials.forEach((texture) => {
-      texture.dispose();
-    });
+    GtUtils.disposeMaterialHelper(this.materials);
   }
 }

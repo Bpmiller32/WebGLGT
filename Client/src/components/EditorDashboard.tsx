@@ -316,19 +316,25 @@ export default defineComponent({
               buttonType="Group0"
               roundLeftCorner={true}
               roundRightCorner={false}
-              handleClick={() => {}}
+              handleClick={() => {
+                Emitter.emit("changeSelectionGroup", 0);
+              }}
             />
             <ActionButton
               buttonType="Group1"
               roundLeftCorner={false}
               roundRightCorner={false}
-              handleClick={() => {}}
+              handleClick={() => {
+                Emitter.emit("changeSelectionGroup", 1);
+              }}
             />
             <ActionButton
               buttonType="Group2"
               roundLeftCorner={false}
               roundRightCorner={true}
-              handleClick={() => {}}
+              handleClick={() => {
+                Emitter.emit("changeSelectionGroup", 2);
+              }}
             />
           </div>
         </section>

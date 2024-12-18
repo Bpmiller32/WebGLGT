@@ -181,6 +181,12 @@ export default class Camera {
   }
 
   private mouseWheel(event: WheelEvent) {
+    // Check if the event target is an HTMLTextAreaElement
+    if (event.target instanceof HTMLTextAreaElement) {
+      // Allow scrolling inside the textarea
+      return;
+    }
+
     // Zoom in and out
     this.targetZoom += event.deltaY * -this.sensitivityZoom * this.time.delta;
     // Clamp the zoom level to prevent inverting the view or zooming too far out
