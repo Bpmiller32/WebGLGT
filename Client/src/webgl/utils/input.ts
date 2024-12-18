@@ -167,7 +167,7 @@ export default class Input {
         keyCode: "Digit1",
         isPressed: (eventResult: boolean) => {
           if (eventResult) {
-            Emitter.emit("changeSelectionGroup", 2);
+            Emitter.emit("changeSelectionGroup", 0);
           }
 
           this.is1KeyPressed = eventResult;
@@ -187,7 +187,7 @@ export default class Input {
         keyCode: "Digit3",
         isPressed: (eventResult: boolean) => {
           if (eventResult) {
-            Emitter.emit("changeSelectionGroup", 0);
+            Emitter.emit("changeSelectionGroup", 2);
           }
 
           this.is3KeyPressed = eventResult;

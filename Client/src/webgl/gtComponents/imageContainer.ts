@@ -26,6 +26,7 @@ export default class ImageContainer {
   public input!: Input;
   private world!: World;
   public debug?: Debug;
+  public isDownloadEnabled!: boolean;
 
   public geometry!: THREE.BoxGeometry;
   public materials!: THREE.MeshBasicMaterial[];
@@ -40,6 +41,8 @@ export default class ImageContainer {
   public imageRotation!: number;
   public stopwatch!: Stopwatch;
   public imageDownloadCount!: number;
+
+  public selectionGroupsUsed: boolean[] = [false, false, false];
 
   constructor() {
     // Init
@@ -80,6 +83,8 @@ export default class ImageContainer {
     this.sizes = this.experience.sizes;
     this.world = this.experience.world;
     this.input = this.experience.input;
+
+    this.isDownloadEnabled = false;
 
     // Class fields
     this.rotationSpeed = 0.005;
@@ -160,13 +165,8 @@ export default class ImageContainer {
     const dataUrl = this.renderer.instance.domElement.toDataURL("image/png");
     const base64Image = dataUrl.split(",")[1]; // Remove the "data:image/png;base64," prefix
 
-    // Debug, Automatically download the screenshot as a PNG file
-    const link = document.createElement("a");
-    link.id = "debugDownloadImage";
-    link.href = dataUrl;
-    link.download = "screenshot.png"; // Specify the file name
-    // Not appending the element to the document, only creating, no need to clean up
-    link.click();
+    // Download render screenshot
+    this.debugDownloadImage(dataUrl);
 
     // Reset render to original size
     this.renderer.instance.setSize(
@@ -181,6 +181,27 @@ export default class ImageContainer {
 
     // Send image to Google Vision at the end of the call to avoid zoom warp out effect caused by delay from response
     await this.sendImageToVisionAPI(base64Image);
+  }
+
+  private debugDownloadImage(dataUrl: string) {
+    if (!this.isDownloadEnabled) {
+      return;
+    }
+
+    // Debug, Automatically download the screenshot as a PNG file
+    const renderScreenshotLink = document.createElement("a");
+    renderScreenshotLink.id = "debugDownloadImage";
+    renderScreenshotLink.href = dataUrl;
+    // Specify the file name
+    renderScreenshotLink.download = "renderScreenshot.png";
+    // Not appending the element to the document, only creating, no need to clean up
+    renderScreenshotLink.click();
+
+    // const fullImageLink = document.createElement("a");
+    // fullImageLink.id = "debugDownloadSecondImage";
+    // fullImageLink.href = this.image.image.src;
+    // fullImageLink.download = "originalImage.png";
+    // fullImageLink.click();
   }
 
   private resetImage() {
@@ -280,22 +301,28 @@ export default class ImageContainer {
       document.getElementById("dashboardTextarea2") as HTMLTextAreaElement,
     ];
 
-    // Assign groups to text areas
-    groups.forEach((group, index) => {
-      const textArea = dashboardTextAreas[index];
-      if (textArea) {
-        textArea.value = group;
-      }
+    // Determine which groups are used
+    const usedIndices = this.selectionGroupsUsed
+      .map((used, index) => (used ? index : -1))
+      .filter((index) => index !== -1);
+
+    // If no selectionGroupsUsed, fill in top group and return early
+    if (usedIndices.length <= 0) {
+      dashboardTextAreas[0].value = groups[0] ?? "";
+      return;
+    }
+
+    // Assign text to the corresponding text areas based on the order in usedIndices
+    usedIndices.forEach((groupIndex, i) => {
+      dashboardTextAreas[groupIndex].value = groups[i] ?? "";
     });
 
-    // Clear unused text areas
-    for (let i = groups.length; i < dashboardTextAreas.length; i++) {
-      const textArea = dashboardTextAreas[i];
-      if (textArea) {
-        // Clear the value for unused text areas
-        textArea.value = "";
+    // Clear any text areas that are not used
+    dashboardTextAreas.forEach((textarea, index) => {
+      if (!usedIndices.includes(index)) {
+        textarea.value = "";
       }
-    }
+    });
   }
 
   private convertRotation(rotationInRadians: number) {

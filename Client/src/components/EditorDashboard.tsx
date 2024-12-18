@@ -19,7 +19,9 @@ export default defineComponent({
     /* ------------------------ Component state and setup ----------------------- */
     // Template refs
     const imageNameRef = ref();
-    const textAreaRef = ref();
+    const GroupTextArea0Active = ref();
+    const GroupTextArea1Active = ref();
+    const GroupTextArea2Active = ref();
 
     // GL, api setup
     const experience = Experience.getInstance();
@@ -38,6 +40,32 @@ export default defineComponent({
     });
     Emitter.on("gotoNextImage", async () => {
       await loadNextImage();
+
+      GroupTextArea0Active.value = false;
+      GroupTextArea1Active.value = false;
+      GroupTextArea2Active.value = false;
+    });
+    Emitter.on("changeSelectionGroup", (groupNumber) => {
+      if (groupNumber == 0) {
+        GroupTextArea0Active.value = true;
+        GroupTextArea1Active.value = false;
+        GroupTextArea2Active.value = false;
+      }
+      if (groupNumber == 1) {
+        GroupTextArea0Active.value = false;
+        GroupTextArea1Active.value = true;
+        GroupTextArea2Active.value = false;
+      }
+      if (groupNumber == 2) {
+        GroupTextArea0Active.value = false;
+        GroupTextArea1Active.value = false;
+        GroupTextArea2Active.value = true;
+      }
+    });
+    Emitter.on("resetImage", () => {
+      GroupTextArea0Active.value = false;
+      GroupTextArea1Active.value = false;
+      GroupTextArea2Active.value = false;
     });
     Emitter.on("badImage", async () => {
       isMpImage.value = false;
@@ -54,7 +82,7 @@ export default defineComponent({
     const submitToDb = async () => {
       // Define data request body
       const data = {
-        address: textAreaRef.value.value,
+        address: GroupTextArea0Active.value.value,
 
         isMpImage: isMpImage.value,
         isHwImage: false,
@@ -62,14 +90,14 @@ export default defineComponent({
       };
 
       // Change the data based on gui, get the textarea content and split into lines
-      const lines = textAreaRef.value.value.split("\n");
+      const lines = GroupTextArea0Active.value.value.split("\n");
 
       // Prepend each line with the corresponding prefix
       const prefixes = ["PO:", "VS:", "TS:"];
 
       // Hacky vendor only
       if (isVendorOnly.value) {
-        data.address = "VS:" + textAreaRef.value.value;
+        data.address = "VS:" + GroupTextArea0Active.value.value;
       } else {
         const modifiedLines = lines.map(
           (line: string, index: number) => `${prefixes[index] || ""}${line}`
@@ -172,7 +200,7 @@ export default defineComponent({
       imageNameRef.value.innerText = image.imageName + ".jpg";
 
       // Clear all fields for new image, except isMpImage since that should be the default
-      textAreaRef.value.value = "";
+      GroupTextArea0Active.value.value = "";
       isMpImage.value = true;
       isBadImage.value = false;
       isVendorOnly.value = false;
@@ -233,10 +261,18 @@ export default defineComponent({
           <GroupTextArea
             color="green"
             id="dashboardTextarea0"
-            textAreaRef={textAreaRef}
+            isActive={GroupTextArea0Active.value}
           />
-          <GroupTextArea color="red" id="dashboardTextarea1" />
-          <GroupTextArea color="blue" id="dashboardTextarea2" />
+          <GroupTextArea
+            color="red"
+            id="dashboardTextarea1"
+            isActive={GroupTextArea1Active.value}
+          />
+          <GroupTextArea
+            color="blue"
+            id="dashboardTextarea2"
+            isActive={GroupTextArea2Active.value}
+          />
         </section>
 
         {/* Mail type, Image Action buttons */}

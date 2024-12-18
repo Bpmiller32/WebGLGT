@@ -23,4 +23,8 @@ export const debugImageContainer = (imageContainer: ImageContainer) => {
     .name("image rotation")
     .step(0.01)
     .listen();
+  imageContainerDebug
+    ?.add(imageContainer, "isDownloadEnabled")
+    .name("downloadImage?")
+    .listen();
 };

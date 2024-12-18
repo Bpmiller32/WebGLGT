@@ -93,7 +93,7 @@ export default class SelectionGroupManager {
     this.worldEndMousePosition = new THREE.Vector3();
     this.activeMesh = null;
 
-    this.activeSelectionGroup = 2;
+    this.activeSelectionGroup = 0;
     this.selectionGroup0 = [];
     this.selectionGroup1 = [];
     this.selectionGroup2 = [];
@@ -199,6 +199,14 @@ export default class SelectionGroupManager {
       return;
     }
 
+    // Store the number of selectionGroupsUsed for delimiting to the right textArea
+    [this.selectionGroup0, this.selectionGroup1, this.selectionGroup2].forEach(
+      (group, index) => {
+        this.world.imageContainer!.selectionGroupsUsed[index] =
+          group.length > 0;
+      }
+    );
+
     // Create selectionGroups, filter out groups with no clipBoxes. The order of the array determines which group order when stacking
     const selectionGroups = this.getNonEmptySelectionGroups();
     if (selectionGroups.length === 0) {
@@ -208,6 +216,9 @@ export default class SelectionGroupManager {
     // Initialize the total height to be added and the combined mesh (starting with the first mesh)
     let totalHeightToAdd = 0;
     let combinedMesh: THREE.Mesh | null = null;
+
+    // Reverse the order of the groups, fixes a mismatch when assigning to textAreas later + better visually
+    selectionGroups.reverse();
 
     // Stack the meshes of the groups
     for (let i = 0; i < selectionGroups.length; i++) {
@@ -251,7 +262,7 @@ export default class SelectionGroupManager {
           delimiterImage.mesh.position.z = 0;
 
           // Make mesh invisible until screenshot
-          // delimiterImage.mesh.visible = false;
+          delimiterImage.mesh.visible = false;
 
           // Update total height for the next mesh
           totalHeightToAdd += delimiterHeight;
@@ -275,7 +286,7 @@ export default class SelectionGroupManager {
     this.centerCameraOnMesh(this.world.imageContainer!.mesh);
 
     // Reset clipboxGroup and visual cue
-    this.changeSelectionGroup(2);
+    this.changeSelectionGroup(0);
 
     // Set gate for joining images only once
     this.areSelectionGroupsJoined = true;
@@ -538,7 +549,7 @@ export default class SelectionGroupManager {
         this.world.imageContainer
       );
       // TODO: assign somewhere for backend
-      console.log("pixelCoordinates: ", test);
+      console.log("pixelCoordinates for firestore: ", test);
     }
 
     return croppedMesh;

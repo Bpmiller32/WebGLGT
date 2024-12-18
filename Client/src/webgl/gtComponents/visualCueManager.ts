@@ -38,7 +38,7 @@ export default class VisualCueManager {
   public createVisualCueMesh() {
     const geometry = new THREE.SphereGeometry(0.2);
     const material = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(0x0000ff),
+      color: new THREE.Color(0x00ff00),
       wireframe: false,
       transparent: true,
       opacity: 0.35,

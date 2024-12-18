@@ -1,18 +1,18 @@
-import { defineComponent, PropType, Ref } from "vue";
+import { defineComponent, PropType } from "vue";
 
 export default defineComponent({
   props: {
     color: {
-      type: String,
+      type: String as PropType<string>,
       required: true,
     },
     id: {
-      type: String,
+      type: String as PropType<string>,
       required: true,
     },
     // Optional
-    textAreaRef: {
-      type: Object as PropType<Ref<HTMLTextAreaElement | null>>,
+    isActive: {
+      type: Boolean as PropType<boolean>,
       required: false,
     },
   },
@@ -21,10 +21,12 @@ export default defineComponent({
       <div class="flex pb-2">
         <textarea
           // Passing down the ref from the parent
-          ref={props.textAreaRef}
           rows="3"
           id={props.id}
-          class="bg-transparent text-gray-100 text-sm leading-6 resize-none w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600"
+          class={[
+            "bg-transparent text-gray-100 text-sm leading-6 resize-none w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600",
+            props.isActive && "ring-2 ring-inset ring-indigo-600",
+          ]}
         />
         <div
           class={`w-2 min-h-full rounded-sm ml-2 bg-${props.color}-500`}
