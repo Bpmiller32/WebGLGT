@@ -8,8 +8,6 @@ import { AuthenticatedRequest } from "./types/authenticatedRequest";
 import { configureMiddleware, requireAuth } from "./middleware";
 import { envVariables } from "./envConfig";
 import { ImageDocument } from "./types/imageDocument";
-
-import asyncHandler from "./utils";
 import Utils from "./utils";
 
 /* -------------------------------------------------------------------------- */
@@ -32,7 +30,7 @@ app.get("/pingServer", (req: Request, res: Response) => {
 });
 
 /* -------------------------- Serve Vision API key -------------------------- */
-app.get("/getApiKey", (req: Request, res: Response) => {
+app.get("/getApiKey", requireAuth, (req: Request, res: Response) => {
   res.status(200).send(envVariables.GOOGLE_VISION_API_KEY);
 });
 
@@ -42,7 +40,6 @@ app.post(
   Utils.asyncHandler(async (req: Request, res: Response) => {
     // Grab password from request
     const { username, password } = req.body;
-
     if (!username || !password) {
       return res.status(400).send("Missing username or password");
     }
@@ -68,7 +65,7 @@ app.post(
 
     // Create a JWT
     const token = jwt.sign({ username }, envVariables.JWT_KEY, {
-      expiresIn: "1h",
+      expiresIn: "6h",
     });
 
     return res.send({ token });
@@ -76,15 +73,25 @@ app.post(
 );
 
 /* ------------------------------- Next image ------------------------------- */
-app.get(
+app.post(
   "/next",
   requireAuth,
   Utils.asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Grab username from request modified by requireAuth middleware
     const username = req.user?.username;
-
     if (!username) {
       return res.status(401).send("User not authenticated");
+    }
+
+    // Grab project/db name from request
+    const { projectName, directoryPath } = req.body;
+    if (!projectName || typeof projectName !== "string") {
+      return res.status(400).json({ error: "Invalid or missing projectName" });
+    }
+    if (!directoryPath || typeof directoryPath !== "string") {
+      return res
+        .status(400)
+        .json({ error: "Invalid or missing directoryPath" });
     }
 
     // Update the lastAccessedTime field for the user
@@ -112,8 +119,8 @@ app.get(
           history.shift();
         }
 
-        // TODO: grab collection name from body
-        const entriesRef = db.collection("test");
+        // Grab collection name from body
+        const entriesRef = db.collection(projectName);
 
         // Run the query against snapshot of the db, try to find unclaimed entry first
         let snapshot = await transaction.get(
@@ -197,7 +204,11 @@ app.get(
     }
 
     // Construct the full path to the image
-    const imagePath = path.join(envVariables.IMAGES_PATH, dbResult.imageName);
+    const imagePath = path.join(
+      envVariables.IMAGES_PATH,
+      directoryPath,
+      dbResult.imageName
+    );
     // Check if the image exists on disk
     const imageBlob = await Utils.readImageAsBase64(imagePath);
 
@@ -207,15 +218,25 @@ app.get(
 );
 
 /* ----------------------------- Previous image ----------------------------- */
-app.get(
+app.post(
   "/previous",
   requireAuth,
   Utils.asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Grab username from request modified by requireAuth middleware
     const username = req.user?.username;
-
     if (!username) {
       return res.status(401).send("User not authenticated");
+    }
+
+    // Grab project/db name from request
+    const { projectName, directoryPath } = req.body;
+    if (!projectName || typeof projectName !== "string") {
+      return res.status(400).json({ error: "Invalid or missing projectName" });
+    }
+    if (!directoryPath || typeof directoryPath !== "string") {
+      return res
+        .status(400)
+        .json({ error: "Invalid or missing directoryPath" });
     }
 
     // Update the lastAccessedTime field for the user
@@ -244,8 +265,7 @@ app.get(
         const prevEntryId = history.pop();
 
         // Fix for bug: get the entryDoc as well before any writes, after this all reads are done and can now write (firestore requirement)
-        // TODO: grab collection name from body instead of test
-        const entryRef = db.collection("test").doc(prevEntryId);
+        const entryRef = db.collection(projectName).doc(prevEntryId);
         const entryDoc = await transaction.get(entryRef);
 
         // Update entry
@@ -272,7 +292,11 @@ app.get(
     }
 
     // Construct the full path to the image
-    const imagePath = path.join(envVariables.IMAGES_PATH, dbResult.imageName);
+    const imagePath = path.join(
+      envVariables.IMAGES_PATH,
+      directoryPath,
+      dbResult.imageName
+    );
     // Check if the image exists on disk
     const imageBlob = await Utils.readImageAsBase64(imagePath);
 
@@ -310,15 +334,20 @@ app.get("/protected", (req: Request, res: Response) => {
 app.post("/createImageDatabase", async (req: Request, res: Response) => {
   try {
     // Grab project/db name from request
-    const { projectName } = req.body;
-
+    const { projectName, directoryPath } = req.body;
     if (!projectName || typeof projectName !== "string") {
       return res.status(400).json({ error: "Invalid or missing projectName" });
     }
+    if (!directoryPath || typeof directoryPath !== "string") {
+      return res
+        .status(400)
+        .json({ error: "Invalid or missing directoryPath" });
+    }
+
+    // Construct the full path to the image
+    const imagePath = path.join(envVariables.IMAGES_PATH, directoryPath);
 
     // Check if the image path exists on disk
-    const imagePath = envVariables.IMAGES_PATH;
-
     if (!fs.existsSync(envVariables.IMAGES_PATH)) {
       return res.status(404).send({ error: "Image path not found on disk" });
     }
@@ -347,8 +376,7 @@ app.post("/createImageDatabase", async (req: Request, res: Response) => {
       // Create a document for each image
       const docData: ImageDocument = {
         imageName: imageFile,
-        // File extension without dot
-        imageType: path.extname(imageFile).substring(1),
+        imageType: "",
         rotation: 0,
         timeOnImage: 0,
         groupText0: "",
@@ -369,6 +397,9 @@ app.post("/createImageDatabase", async (req: Request, res: Response) => {
       await collectionRef.add(docData);
       entryCount++;
     }
+
+    // Update and deploy index configuration file through Google Cloud, custom indexes needed for db and firestore cannot make them automatically or programmatically for some reason
+    await Utils.createFirestoreIndex("webglgt", projectName);
 
     return res.status(200).json({
       message: `New database created for project: ${projectName}`,

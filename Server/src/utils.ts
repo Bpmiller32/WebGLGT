@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import fs from "fs/promises";
 import path from "path";
+import { google } from "googleapis";
+import { envVariables } from "./envConfig";
 
 export default class Utils {
   // Reads and validates the presence of an image file, returns its Base64 encoded string.
@@ -45,6 +47,47 @@ export default class Utils {
       );
     } catch (error) {
       throw new Error("Failed to read image directory");
+    }
+  };
+
+  public static createFirestoreIndex = async (
+    projectId: string,
+    collectionId: string
+  ) => {
+    // Create a custom JWT auth client
+    const authClient = new google.auth.JWT({
+      email: envVariables.GOOGLECLOUD_SERVICE_ACCOUNT.client_email,
+      key: envVariables.GOOGLECLOUD_SERVICE_ACCOUNT.private_key,
+      scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+    });
+
+    // Grab service account's Firestore
+    const firestore = google.firestore({
+      version: "v1",
+      auth: authClient,
+    });
+
+    // Define collection to add indexes to, custom indexes config
+    const collection = `projects/${projectId}/databases/(default)/collectionGroups/${collectionId}`;
+    const indexConfig = {
+      fields: [
+        { fieldPath: "status", order: "ASCENDING" },
+        { fieldPath: "createdAt", order: "ASCENDING" },
+        { fieldPath: "__name__", order: "ASCENDING" },
+      ],
+    };
+
+    try {
+      // Create the indexes
+      await firestore.projects.databases.collectionGroups.indexes.create({
+        parent: collection,
+        requestBody: {
+          fields: indexConfig.fields,
+          queryScope: "COLLECTION",
+        },
+      });
+    } catch (error: any) {
+      throw new Error("Failed to create Firestore index");
     }
   };
 }

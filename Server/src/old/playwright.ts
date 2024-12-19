@@ -2,9 +2,7 @@ import { Browser, chromium, Page } from "playwright";
 import * as fs from "fs";
 import * as path from "path";
 
-export async function startBrowser(
-  url: string
-): Promise<{ browser: Browser; page: Page }> {
+export async function startBrowser(url: string) {
   const browser = await chromium.launch({ headless: false });
   const page = await browser.newPage();
 
@@ -73,7 +71,7 @@ export async function stopBrowser(browser: Browser) {
   await browser.close();
 }
 
-export async function getImageName(page: Page): Promise<string> {
+export async function getImageName(page: Page) {
   const url = page.url();
 
   // Regular expression to match the fileid parameter
@@ -91,7 +89,7 @@ export async function getImageName(page: Page): Promise<string> {
   return output;
 }
 
-export async function downloadImage(page: Page): Promise<Buffer> {
+export async function downloadImage(page: Page) {
   // Define image's selector
   const imageSelector = "#viewer > img";
 
@@ -225,7 +223,7 @@ export async function manualGotoImage(
   }
 }
 
-export async function getImageFromDisk(imageFilePath: string): Promise<Buffer> {
+export async function getImageFromDisk(imageFilePath: string) {
   // Resolve the absolute path to the image on disk
   const resolvedImagePath = path.resolve(imageFilePath);
 
@@ -239,7 +237,7 @@ export async function getImageFromDisk(imageFilePath: string): Promise<Buffer> {
 export async function getNextImageFromDisk(
   fileId: string,
   imageFolderPath: string
-): Promise<Buffer> {
+) {
   // Read the contents of the directory
   const files = fs.readdirSync(imageFolderPath);
 

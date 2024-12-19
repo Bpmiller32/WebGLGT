@@ -1,21 +1,10 @@
 import { initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
-import { readFileSync } from "fs";
-import dotenv from "dotenv";
-
-// Load environment variables
-dotenv.config();
-
-// Parse service account from json file
-const serviceAccount = JSON.parse(
-  readFileSync(process.env.FIREBASE_SERVICE_ACCOUNT_KEY_PATH || "").toString(
-    "utf8"
-  )
-);
+import { envVariables } from "./envConfig";
 
 // Initialize the Admin SDK
 initializeApp({
-  credential: cert(serviceAccount),
+  credential: cert(envVariables.GOOGLECLOUD_SERVICE_ACCOUNT),
 });
 
 // Get a Firestore instance
