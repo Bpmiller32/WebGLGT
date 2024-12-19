@@ -306,9 +306,22 @@ export default class ImageContainer {
       .map((used, index) => (used ? index : -1))
       .filter((index) => index !== -1);
 
-    // If no selectionGroupsUsed, fill in top group and return early
+    // If no selectionGroupsUsed, fill in activeSelctionGroup and return early
     if (usedIndices.length <= 0) {
-      dashboardTextAreas[0].value = groups[0] ?? "";
+      if (this.world.selectionGroupManager?.activeSelectionGroup == 0) {
+        dashboardTextAreas[0].value = groups[0] ?? "";
+        dashboardTextAreas[1].value = "";
+        dashboardTextAreas[2].value = "";
+      } else if (this.world.selectionGroupManager?.activeSelectionGroup == 1) {
+        dashboardTextAreas[0].value = "";
+        dashboardTextAreas[1].value = groups[0] ?? "";
+        dashboardTextAreas[2].value = "";
+      } else if (this.world.selectionGroupManager?.activeSelectionGroup == 2) {
+        dashboardTextAreas[0].value = "";
+        dashboardTextAreas[1].value = "";
+        dashboardTextAreas[2].value = groups[0] ?? "";
+      }
+
       return;
     }
 

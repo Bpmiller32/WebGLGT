@@ -24,8 +24,11 @@ export default defineComponent({
           rows="3"
           id={props.id}
           class={[
-            "bg-transparent text-gray-100 text-sm leading-6 resize-none w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600",
-            props.isActive && "ring-2 ring-inset ring-indigo-600",
+            "bg-transparent text-gray-100 text-sm leading-6 resize-none w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400",
+            props.isActive &&
+              "ring-2 ring-inset ring-indigo-600 focus:ring-[2.3px] focus:ring-indigo-600 focus:ring-inset",
+            !props.isActive &&
+              "focus:ring-2 focus:ring-gray-300 focus:ring-inset",
           ]}
         />
         <div

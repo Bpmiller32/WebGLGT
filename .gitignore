@@ -32,3 +32,4 @@ Client/tsconfig.tsbuildinfo
 Server/tsconfig.tsbuildinfo
 Client/.env
 Server/.env
+Server/firebaseServiceAccountKey.json

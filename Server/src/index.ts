@@ -1,44 +1,81 @@
-import express, { Request, Response } from "express";
+import express, { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 import bodyParser from "body-parser";
 import cors from "cors";
-import { Browser, Page } from "playwright";
-import {
-  downloadImage,
-  fillInForm,
-  getImageFromDisk,
-  getImageName,
-  gotoNextImage,
-  manualGotoImage,
-  startBrowser,
-  stopBrowser,
-} from "./playwright";
+import dotenv from "dotenv";
+import { db } from "./firebaseAdmin";
+import { Transaction } from "firebase-admin/firestore";
+
+interface AuthenticatedRequest extends Request {
+  user?: {
+    username: string;
+  };
+}
 
 /* -------------------------------------------------------------------------- */
 /*                                    Setup                                   */
 /* -------------------------------------------------------------------------- */
+// Load environment variables
+dotenv.config();
+
 // Expressjs fields
 const app = express();
 const port = 3000;
 
+// Keys
+const JWT_KEY = process.env.JWT_KEY;
+const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY;
+if (!JWT_KEY) {
+  throw new Error("JWT_KEY is not defined in the environment variables");
+}
+
 // Middleware to parse JSON bodies
 app.use(bodyParser.json());
 
-// Configure CORS
+// Middleware configure CORS
 app.use(
   cors({
     origin: ["http://localhost:5173", "https://webglgt.web.app"], // Replace with approved frontend URLs
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type"],
-    exposedHeaders: ["X-Gt-Image-Name"], // Expose the custom header to the client
   })
 );
 
-// Playwright fields
-let browser: Browser;
-let page: Page;
+// Middleware authorization
+const requireAuth = (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  // Check for header
+  const authHeader = req.headers["authorization"];
+  if (!authHeader) {
+    return res.status(401).send("No authorization header");
+  }
 
-// Google Vision API key
-const visionApiKey = process.env.GOOGLE_VISION_API_KEY;
+  // Check for header value's Bearer prefix
+  const headerParts = authHeader.split(" ");
+  if (headerParts.length !== 2 || headerParts[0] !== "Bearer") {
+    return res.status(401).send("Invalid authorization format");
+  }
+
+  // Verify the token itself against the JWT_KEY
+  const token = headerParts[1];
+  jwt.verify(token, JWT_KEY, (err, decoded) => {
+    if (err || !decoded) {
+      return res.status(401).send("Invalid token");
+    }
+
+    // Check that decoded is an object that contains a key username
+    if (typeof decoded === "object" && "username" in decoded) {
+      // Attach it to the request and pass the request down the pipline
+      req.user = { username: (decoded as any).username };
+      return next();
+    } else {
+      return res.status(401).send("Invalid token payload");
+    }
+  });
+};
 
 /* -------------------------------------------------------------------------- */
 /*                                  Requests                                  */
@@ -51,127 +88,166 @@ app.get("/pingServer", (req: Request, res: Response) => {
 
 /* -------------------------- Serve Vision API key -------------------------- */
 app.get("/getApiKey", (req: Request, res: Response) => {
-  res.status(200).send(visionApiKey);
+  res.status(200).send(GOOGLE_VISION_API_KEY);
 });
 
-/* ----------------------- Initialize browser instance ---------------------- */
-app.get("/startBrowser", async (req: Request, res: Response) => {
-  if (browser || page) {
-    res.status(200).send("Browser instance already initialized and running");
-    return;
+/* ------------------------------- Login Route ------------------------------ */
+app.post("/login", async (req: Request, res: Response) => {
+  // Grab password from request
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).send("Missing username or password");
   }
 
   try {
-    // Call the async function and use temporary names for destructuring
-    const pwOutput = await startBrowser(
-      "http://groundtruth.raf.com/webgt/?l=en"
+    // Query Firestore for the user document by username (document ID)
+    const usersRef = db.collection("users");
+    const userDoc = await usersRef.doc(username).get();
+
+    if (!userDoc.exists) {
+      return res.status(401).send("Invalid username");
+    }
+
+    // Access the password field
+    const userData = userDoc.data();
+    const userPassword = userData?.password;
+
+    // Check the password, TODO: encrypt and compare with bcrypt once passwords are hashed in FireStore
+    if (password !== userPassword) {
+      return res.status(401).send("Invalid username or password");
+    }
+
+    // Password is valid, create a JWT
+    const token = jwt.sign(
+      { username: username },
+      JWT_KEY,
+      { expiresIn: "1h" } // token expires in 1 hour, adjust as needed
     );
 
-    // Assign temporary variables to existing global variables
-    browser = pwOutput.browser;
-    page = pwOutput.page;
-
-    res.status(200).send("Browser was initialized and logged in successfully");
+    // Return the token to the client
+    return res.send({ token });
   } catch (error) {
-    res.status(500).send((error as Error).message);
+    return res.status(500).send("Internal server error");
   }
 });
 
-/* ------------------------ Destroy browser instance ------------------------ */
-app.get("/stopBrowser", async (req: Request, res: Response) => {
-  try {
-    await stopBrowser(browser);
+/* ------------------------------- Next image ------------------------------- */
+app.get(
+  "/next",
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response) => {
+    // Grab username from request modified by requireAuth middleware
+    const username = req.user?.username;
 
-    res.status(200).send("Browser instance was closed successfully");
-  } catch (error) {
-    res.status(500).send((error as Error).message);
+    if (!username) {
+      return res.status(401).send("User not authenticated");
+    }
+
+    try {
+      // Look to grab next image in collection
+      const result = await db.runTransaction(
+        // Use a Firestore transaction to atomically query
+        async (transaction: Transaction) => {
+          const userRef = db.collection("users").doc(username);
+          const userDoc = await transaction.get(userRef);
+          const userData = userDoc.data() || {
+            currentEntryId: null,
+            history: [] as string[],
+          };
+
+          // Push current entry to history if it exists
+          const history = userData.history || [];
+          if (userData.currentEntryId) {
+            history.push(userData.currentEntryId);
+          }
+
+          // Query for an unclaimed entry
+          const entriesRef = db.collection("entries");
+          const query = entriesRef
+            .where("status", "==", "unclaimed")
+            .orderBy("createdAt", "asc")
+            .limit(1);
+
+          // Run the query, get a snapshot of the db
+          const snapshot = await transaction.get(query);
+
+          // No entries available, just update the user doc with no changes to currentEntryId
+          if (snapshot.empty) {
+            transaction.set(userRef, { history }, { merge: true });
+            return null;
+          }
+
+          // Entry available, grab first (only, based on limit(1)), check if it is somehow unclaimed
+          const doc = snapshot.docs[0];
+          const entryRef = doc.ref;
+          const entryData = doc.data();
+
+          if (entryData.status !== "unclaimed") {
+            return null;
+          }
+
+          // Assign to the user who made the request
+          transaction.update(entryRef, {
+            assignedTo: username,
+            status: "inProgress",
+            claimedAt: new Date(),
+          });
+
+          // Update user doc
+          transaction.set(
+            userRef,
+            {
+              currentEntryId: doc.id,
+              history: history,
+            },
+            { merge: true }
+          );
+
+          return {
+            id: doc.id,
+            ...entryData,
+            assignedTo: username,
+            status: "inProgress",
+          };
+        }
+      );
+
+      // No viable images in collection to grab
+      if (!result) {
+        return res.status(404).send({ message: "No available entries" });
+      }
+
+      // Return the db entry
+      return res.send(result);
+    } catch (error) {
+      return res.status(500).send({ error: "Internal server error" });
+    }
   }
-});
-
-/* --------- Download the image from the current page into Blob data -------- */
-app.get("/downloadImage", async (req: Request, res: Response) => {
-  try {
-    const imageBuffer = await downloadImage(page);
-
-    // Set the appropriate content type (e.g., image/jpeg, image/png)
-    res.setHeader("Content-Type", "image/jpeg");
-
-    // Set the response header with the image name to save a axios call from the FE
-    const imageName = await getImageName(page);
-    res.set("X-Gt-Image-Name", imageName);
-
-    // Send the image buffer
-    res.status(200).send(imageBuffer);
-  } catch (error) {
-    res.status(500).send((error as Error).message);
-  }
-});
-
-/* ------------- Fill in the gt form fields on the current page ------------- */
-app.post("/fillInForm", async (req: Request, res: Response) => {
-  try {
-    // Extract data from the request body
-    const requestData = req.body;
-
-    await fillInForm(page, requestData);
-    res.status(200).send("Form filled out successfully");
-  } catch (error) {
-    res.status(500).send((error as Error).message);
-  }
-});
-
-/* ----------- Navigate to the next image using the page controls ----------- */
-app.get("/gotoNextImage", async (req: Request, res: Response) => {
-  try {
-    await gotoNextImage(page);
-
-    res
-      .status(200)
-      .send("Page navigation control clicked, next image is being displayed");
-  } catch (error) {
-    res.status(500).send((error as Error).message);
-  }
-});
+);
 
 /* -------------------------------------------------------------------------- */
 /*                               Debug requests                               */
 /* -------------------------------------------------------------------------- */
 
-/* --------------- Navigate and serve image's based on fileId --------------- */
-app.post("/manualGotoImage", async (req: Request, res: Response) => {
-  try {
-    const requestData = req.body;
-    await manualGotoImage(page, requestData);
-
-    res
-      .status(200)
-      .send(
-        "Page navigation manually executed by fileId, new image is being displayed"
-      );
-  } catch (error) {
-    res.status(500).send((error as Error).message);
+/* -------------------------- Test Protected Route -------------------------- */
+app.get("/protected", (req: Request, res: Response) => {
+  // Check for header
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ message: "No token provided" });
   }
-});
 
-/* ----- Get image from disk instead of gt, for debug and demonstration ----- */
-app.get("/getImageFromDisk", async (req: Request, res: Response) => {
-  try {
-    const imageBuffer = await getImageFromDisk(
-      "C:\\Users\\billym\\Desktop\\test.jpg"
-    );
+  // Verify the token itself against the JWT_KEY
+  const token = authHeader.split(" ")[1];
+  jwt.verify(token, JWT_KEY, (err, decoded) => {
+    if (err || !decoded) {
+      return res.status(403).json({ message: "Failed to authenticate token" });
+    }
 
-    // Set the appropriate content type (e.g., image/jpeg, image/png)
-    res.setHeader("Content-Type", "image/jpeg");
-
-    // Set the response header with the image name to save a axios call from the FE
-    const imageName = await getImageName(page);
-    res.setHeader("X-Gt-Image-Name", imageName);
-
-    // Send the image buffer
-    res.status(200).send(imageBuffer);
-  } catch (error) {
-    res.status(500).send((error as Error).message);
-  }
+    // Send response with message and token
+    return res.json({ message: "Welcome to the protected route!", decoded });
+  });
 });
 
 /* -------------------------------------------------------------------------- */

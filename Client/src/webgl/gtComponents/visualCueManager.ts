@@ -44,6 +44,11 @@ export default class VisualCueManager {
       opacity: 0.35,
     });
     this.visualCueMesh = new THREE.Mesh(geometry, material);
+
+    // Fix for 1st paint, scale is calculated in update after this
+    const scaleVal = 1 / this.camera.orthographicCamera.zoom;
+    this.visualCueMesh.scale.set(scaleVal, scaleVal, scaleVal);
+
     this.scene.add(this.visualCueMesh);
   }
 

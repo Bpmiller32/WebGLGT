@@ -67,6 +67,9 @@ export default class SelectionGroupManager {
     });
     Emitter.on("resetImage", () => {
       this.destroy();
+
+      this.activeSelectionGroup = 0;
+
       this.world.delimiterImages.forEach((delimiterImage) => {
         delimiterImage.resetPosition();
       });
