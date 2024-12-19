@@ -9,6 +9,9 @@ import { configureMiddleware, requireAuth } from "./middleware";
 import { envVariables } from "./envConfig";
 import { ImageDocument } from "./types/imageDocument";
 
+import asyncHandler from "./utils";
+import Utils from "./utils";
+
 /* -------------------------------------------------------------------------- */
 /*                                    Setup                                   */
 /* -------------------------------------------------------------------------- */
@@ -34,19 +37,18 @@ app.get("/getApiKey", (req: Request, res: Response) => {
 });
 
 /* ------------------------------- Login Route ------------------------------ */
-app.post("/login", async (req: Request, res: Response) => {
-  // Grab password from request
-  const { username, password } = req.body;
+app.post(
+  "/login",
+  Utils.asyncHandler(async (req: Request, res: Response) => {
+    // Grab password from request
+    const { username, password } = req.body;
 
-  if (!username || !password) {
-    return res.status(400).send("Missing username or password");
-  }
+    if (!username || !password) {
+      return res.status(400).send("Missing username or password");
+    }
 
-  try {
     // Query Firestore for the user document by username (document ID)
-    const usersRef = db.collection("users");
-    const userDocRef = usersRef.doc(username);
-    const userDoc = await userDocRef.get();
+    const userDoc = await db.collection("users").doc(username).get();
 
     if (!userDoc.exists) {
       return res.status(401).send("Invalid username");
@@ -58,33 +60,26 @@ app.post("/login", async (req: Request, res: Response) => {
 
     // Check the password, TODO: encrypt and compare with bcrypt once passwords are hashed in FireStore
     if (password !== userPassword) {
-      return res.status(401).send("Invalid username or password");
+      return res.status(401).send("Invalid password");
     }
 
-    // Password is valid, update the lastLoggedInTime
-    await userDocRef.update({
-      lastLoggedInTime: new Date().toISOString(),
+    // Update the lastLoggedInTime
+    await userDoc.ref.update({ lastLoggedInTime: new Date().toISOString() });
+
+    // Create a JWT
+    const token = jwt.sign({ username }, envVariables.JWT_KEY, {
+      expiresIn: "1h",
     });
 
-    // Password is valid, create a JWT
-    const token = jwt.sign(
-      { username: username },
-      envVariables.JWT_KEY,
-      { expiresIn: "1h" } // token expires in 1 hour, adjust as needed
-    );
-
-    // Return the token to the client
     return res.send({ token });
-  } catch (error) {
-    return res.status(500).send("Internal server error");
-  }
-});
+  })
+);
 
 /* ------------------------------- Next image ------------------------------- */
 app.get(
   "/next",
   requireAuth,
-  async (req: AuthenticatedRequest, res: Response) => {
+  Utils.asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Grab username from request modified by requireAuth middleware
     const username = req.user?.username;
 
@@ -92,189 +87,130 @@ app.get(
       return res.status(401).send("User not authenticated");
     }
 
-    try {
-      // Update the lastAccessedTime field for the user
-      const userRef = db.collection("users").doc(username);
-      await userRef.update({
-        lastAccessedTime: new Date().toISOString(),
-      });
+    // Update the lastAccessedTime field for the user
+    const userRef = db.collection("users").doc(username);
+    await userRef.update({ lastAccessedTime: new Date().toISOString() });
 
-      // Look to grab next image in collection
-      const dbResult = await db.runTransaction(
-        // Use a Firestore transaction to atomically query
-        async (transaction: Transaction) => {
-          const userDoc = await transaction.get(userRef);
-          const userData = userDoc.data() || {
-            currentEntryId: null,
-            history: [] as string[],
-          };
+    // Use a Firestore transaction to atomically query
+    const dbResult = await db.runTransaction(
+      async (transaction: Transaction) => {
+        // Get user that sent request
+        const userDoc = await transaction.get(userRef);
+        const userData = userDoc.data() || {
+          currentEntryId: null,
+          history: [],
+        };
+        const history = userData.history || [];
 
-          // Push current entry to history if it exists
-          const history = userData.history || [];
-          if (userData.currentEntryId) {
-            history.push(userData.currentEntryId);
-          }
+        // Push current entry to history if it exists
+        if (userData.currentEntryId) {
+          history.push(userData.currentEntryId);
+        }
 
-          // Ensure history has no more than 5 entries
-          if (history.length > 5) {
-            history.shift(); // Remove the oldest entry
-          }
+        // Ensure history has no more than 5 entries, remove the oldest entry
+        if (history.length > 5) {
+          history.shift();
+        }
 
-          // TODO: grab collection name from body
-          const entriesRef = db.collection("test");
+        // TODO: grab collection name from body
+        const entriesRef = db.collection("test");
 
-          // Query for an unclaimed entry, try to find unclaimed entry first
-          let query = entriesRef
+        // Run the query against snapshot of the db, try to find unclaimed entry first
+        let snapshot = await transaction.get(
+          entriesRef
             .where("status", "==", "unclaimed")
             .orderBy("createdAt", "asc")
-            .limit(1);
+            .limit(1)
+        );
 
-          // Run the query, get a snapshot of the db
-          let snapshot = await transaction.get(query);
+        // Unclaimed entry found
+        if (!snapshot.empty) {
+          const entryDoc = snapshot.docs[0];
+          const entryData = entryDoc.data();
 
-          let entryDoc;
-          let entryData;
-          let entryRef;
+          // Update entry status to inProgress and assign to the user
+          transaction.update(entryDoc.ref, {
+            assignedTo: username,
+            status: "inProgress",
+            claimedAt: new Date(),
+          });
 
-          // No unclaimed entries found
-          if (snapshot.empty) {
-            // Try finding an inProgress entry assigned to this user
-            query = entriesRef
-              .where("status", "==", "inProgress")
-              .where("assignedTo", "==", username)
-              .orderBy("createdAt", "asc")
-              // Increase the limit so we can skip the currentEntryId if encountered.
-              .limit(10);
+          // Update user
+          transaction.set(
+            userRef,
+            {
+              currentEntryId: entryDoc.id,
+              history,
+            },
+            { merge: true }
+          );
 
-            // Run the query, get a snapshot of the db
-            snapshot = await transaction.get(query);
-
-            // No available entries (unclaimed or already inProgress for this user)
-            if (snapshot.empty) {
-              transaction.set(userRef, { history }, { merge: true });
-              return null;
-            }
-
-            // Find an inProgress entry that isn't the current entry
-            const candidateDoc = snapshot.docs.find(
-              (doc) => doc.id !== userData.currentEntryId
-            );
-
-            // All inProgress entries belong to currentEntryId, no other entry to return
-            if (!candidateDoc) {
-              transaction.set(userRef, { history }, { merge: true });
-              return null;
-            }
-
-            // Found a suitable inProgress entry
-            entryDoc = candidateDoc;
-            entryRef = entryDoc.ref;
-            entryData = entryDoc.data();
-
-            // Since it's already inProgress and assigned to this user, we don't need to update the entry. Just set currentEntryId and history.
-            transaction.set(
-              userRef,
-              {
-                currentEntryId: entryDoc.id,
-                history: history,
-              },
-              { merge: true }
-            );
-
-            // Return the valid db entry, only part to care about on valid is imageName
-            return {
-              id: entryDoc.id,
-              imageName: entryData.imageName,
-              assignedTo: username,
-              status: "inProgress",
-            };
-          } else {
-            // Unclaimed entry found
-            entryDoc = snapshot.docs[0];
-            entryRef = entryDoc.ref;
-            entryData = entryDoc.data();
-
-            // Double-check status is still unclaimed
-            if (entryData.status !== "unclaimed") {
-              // If somehow changed, return null
-              return null;
-            }
-
-            // Assign to the user who made the request
-            transaction.update(entryRef, {
-              assignedTo: username,
-              status: "inProgress",
-              claimedAt: new Date(),
-            });
-
-            // Update user doc
-            transaction.set(
-              userRef,
-              {
-                currentEntryId: entryDoc.id,
-                history: history,
-              },
-              { merge: true }
-            );
-
-            // Return the valid db entry, only part to care about on valid is imageName
-            return {
-              id: entryDoc.id,
-              imageName: entryData.imageName,
-              assignedTo: username,
-              status: "inProgress",
-            };
-          }
+          return { id: entryDoc.id, imageName: entryData.imageName };
         }
-      );
 
-      // No viable images in collection to grab
-      if (!dbResult) {
-        return res.status(404).send({ message: "No available entries" });
+        // No unclaimed entry found, look for an inProgress entry assigned to the user
+        snapshot = await transaction.get(
+          entriesRef
+            .where("status", "==", "inProgress")
+            .where("assignedTo", "==", username)
+            .orderBy("createdAt", "asc")
+            // Increase the limit to ensure a valid entry is found
+            .limit(10)
+        );
+
+        // No unclaimed or inProgress entries found, update user and return
+        if (snapshot.empty) {
+          // Update user
+          transaction.set(userRef, { history }, { merge: true });
+          return null;
+        }
+
+        // Find an inProgress entry that isn’t the current entry
+        const candidateDoc = snapshot.docs.find(
+          (doc) => doc.id !== userData.currentEntryId
+        );
+
+        // All inProgress entries are already the current entry, update user and return
+        if (!candidateDoc) {
+          transaction.set(userRef, { history }, { merge: true });
+          return null;
+        }
+
+        // Update the user document with the new current entry
+        transaction.set(
+          userRef,
+          {
+            currentEntryId: candidateDoc.id,
+            history,
+          },
+          { merge: true }
+        );
+
+        const entryData = candidateDoc.data();
+        return { id: candidateDoc.id, imageName: entryData.imageName };
       }
+    );
 
-      // Check if Firestore result has an imageName
-      if (!dbResult.imageName) {
-        return res
-          .status(400)
-          .send({ error: "Image name is missing in entry" });
-      }
-
-      // Construct the full path to the image
-      const imagePath = path.join(envVariables.IMAGES_PATH, dbResult.imageName);
-
-      // Check if the image exists on disk
-      if (!fs.existsSync(imagePath)) {
-        return res.status(404).send({ error: "Image not found on disk" });
-      }
-
-      // Read and encode the image as a Base64 string
-      const imageBuffer = fs.readFileSync(imagePath);
-      const imageBlob = imageBuffer.toString("base64");
-
-      // Spread dbResult, add imageBlob, send the response
-      return res.send({
-        ...dbResult,
-        imageBlob,
-      });
-    } catch (error: any) {
-      // This is a "FAILED_PRECONDITION" error, often related to missing indexes
-      if (error.code === 9) {
-        return res
-          .status(400)
-          .send({ error: "Index required or failed precondition" });
-      }
-
-      return res.status(500).send({ error: "Internal server error" });
+    // No viable images in collection to grab
+    if (!dbResult) {
+      return res.status(404).send({ message: "No available entries" });
     }
-  }
+
+    // Construct the full path to the image
+    const imagePath = path.join(envVariables.IMAGES_PATH, dbResult.imageName);
+    // Check if the image exists on disk
+    const imageBlob = await Utils.readImageAsBase64(imagePath);
+
+    // Spread dbResult, add imageBlob, send the response
+    res.send({ ...dbResult, imageBlob });
+  })
 );
 
 /* ----------------------------- Previous image ----------------------------- */
 app.get(
   "/previous",
   requireAuth,
-  async (req: AuthenticatedRequest, res: Response) => {
+  Utils.asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Grab username from request modified by requireAuth middleware
     const username = req.user?.username;
 
@@ -282,118 +218,67 @@ app.get(
       return res.status(401).send("User not authenticated");
     }
 
-    try {
-      // Update the lastAccessedTime field for the user
-      const userRef = db.collection("users").doc(username);
-      await userRef.update({
-        lastAccessedTime: new Date().toISOString(),
-      });
+    // Update the lastAccessedTime field for the user
+    const userRef = db.collection("users").doc(username);
+    await userRef.update({
+      lastAccessedTime: new Date().toISOString(),
+    });
 
-      const dbResult = await db.runTransaction(
-        // Use a Firestore transaction to atomically query
-        async (transaction: Transaction) => {
-          const userDoc = await transaction.get(userRef);
-          const userData = userDoc.data()!;
-          const history = userData.history || [];
+    // Use a Firestore transaction to atomically query
+    const dbResult = await db.runTransaction(
+      async (transaction: Transaction) => {
+        // Get user that sent request
+        const userDoc = await transaction.get(userRef);
+        const userData = userDoc.data() || {
+          currentEntryId: null,
+          history: [],
+        };
+        const history = userData.history || [];
 
-          // Check if history is empty before doing any writes
-          if (history.length === 0) {
-            return { message: "No previous entry" };
-          }
-
-          // Pop the last visited entry from history
-          const prevEntryId = history.pop();
-
-          // Fix for bug: get the entryDoc as well before any writes, after this all reads are done and can now write (firestore requirement)
-          // TODO: grab collection name from body instead of test
-          const entryRef = db.collection("test").doc(prevEntryId);
-          const entryDoc = await transaction.get(entryRef);
-
-          // Update user doc
-          transaction.set(
-            userRef,
-            {
-              currentEntryId: prevEntryId,
-              history: history,
-            },
-            { merge: true }
-          );
-
-          // Reclaim the previous entry for this user
-          const entryData = entryDoc.data()!;
-
-          transaction.update(entryRef, {
-            assignedTo: username,
-            status: "inProgress",
-            claimedAt: new Date(),
-          });
-
-          transaction.set(
-            userRef,
-            {
-              currentEntryId: prevEntryId,
-              history: history,
-            },
-            { merge: true }
-          );
-
-          return {
-            id: prevEntryId,
-            imageName: entryData.imageName,
-            assignedTo: username,
-            status: "inProgress",
-          };
+        // Check if history is empty before doing any writes
+        if (history.length === 0) {
+          return null;
         }
-      );
 
-      // If no previous entry
-      if (
-        dbResult &&
-        "message" in dbResult &&
-        dbResult.message === "No previous entry"
-      ) {
-        return res.status(404).send({ message: "No previous entry" });
+        // Pop the last visited entry from history
+        const prevEntryId = history.pop();
+
+        // Fix for bug: get the entryDoc as well before any writes, after this all reads are done and can now write (firestore requirement)
+        // TODO: grab collection name from body instead of test
+        const entryRef = db.collection("test").doc(prevEntryId);
+        const entryDoc = await transaction.get(entryRef);
+
+        // Update entry
+        transaction.update(entryRef, {
+          assignedTo: username,
+          status: "inProgress",
+          claimedAt: new Date(),
+        });
+
+        // Update user
+        transaction.set(
+          userRef,
+          { currentEntryId: prevEntryId, history },
+          { merge: true }
+        );
+
+        return { id: prevEntryId, imageName: entryDoc.data()?.imageName };
       }
+    );
 
-      // If previous entry not found
-      if (
-        dbResult &&
-        "message" in dbResult &&
-        dbResult.message === "Previous entry not found"
-      ) {
-        return res.status(404).send(dbResult);
-      }
-
-      // Check if we have a valid dbResult with imageName
-      if (!dbResult || !("imageName" in dbResult)) {
-        return res
-          .status(400)
-          .send({ error: "Image name is missing in entry" });
-      }
-
-      const imageName = dbResult.imageName as string;
-
-      // Construct the full path to the image
-      const imagePath = path.join(envVariables.IMAGES_PATH, imageName);
-
-      // Check if the image exists on disk
-      if (!fs.existsSync(imagePath)) {
-        return res.status(404).send({ error: "Image not found on disk" });
-      }
-
-      // Read and encode the image as a Base64 string
-      const imageBuffer = fs.readFileSync(imagePath);
-      const imageBlob = imageBuffer.toString("base64");
-
-      return res.send({
-        ...dbResult,
-        imageBlob,
-      });
-    } catch (error) {
-      console.error("Error retrieving previous entry:", error);
-      return res.status(500).send({ error: "Internal server error" });
+    // If no previous entry
+    if (!dbResult) {
+      return res.status(404).send({ message: "No previous entry" });
     }
-  }
+
+    // Construct the full path to the image
+    const imagePath = path.join(envVariables.IMAGES_PATH, dbResult.imageName);
+    // Check if the image exists on disk
+    const imageBlob = await Utils.readImageAsBase64(imagePath);
+
+    // Spread dbResult, add imageBlob, send the response
+    res.send({ ...dbResult, imageBlob });
+  })
 );
 
 /* -------------------------------------------------------------------------- */
@@ -402,97 +287,97 @@ app.get(
 
 /* -------------------------- Test Protected Route -------------------------- */
 app.get("/protected", (req: Request, res: Response) => {
-  // Check for header
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ message: "No token provided" });
+  try {
+    // Check for header
+    const authHeader = req.headers.authorization;
+    // Verify the token against the JWT_KEY
+    const token = Utils.extractToken(authHeader);
+
+    jwt.verify(token, envVariables.JWT_KEY, (err, decoded) => {
+      if (err || !decoded) {
+        return res.status(403).send("Failed to authenticate token");
+      }
+
+      // Send response with message and token
+      return res.json({ message: "Welcome to the protected route!", decoded });
+    });
+  } catch (error) {
+    return res.status(401).send(error);
   }
-
-  // Verify the token itself against the JWT_KEY
-  const token = authHeader.split(" ")[1];
-  jwt.verify(token, envVariables.JWT_KEY, (err, decoded) => {
-    if (err || !decoded) {
-      return res.status(403).json({ message: "Failed to authenticate token" });
-    }
-
-    // Send response with message and token
-    return res.json({ message: "Welcome to the protected route!", decoded });
-  });
 });
 
 /* ------------------------- Create a new project db ------------------------ */
 app.post("/createImageDatabase", async (req: Request, res: Response) => {
-  // Grab project/db name from request
-  const { projectName } = req.body;
+  try {
+    // Grab project/db name from request
+    const { projectName } = req.body;
 
-  // Check if the image path exists on disk
-  if (!fs.existsSync(envVariables.IMAGES_PATH)) {
-    return res.status(404).send({ error: "Image path not found on disk" });
-  }
-
-  // Get list of files in the directory
-  const files = fs.readdirSync(envVariables.IMAGES_PATH);
-
-  // Filter out only image files
-  const imageExtensions = [".jpg", ".jpeg", ".png", ".bmp", ".gif"];
-  const imageFiles = files.filter((file) =>
-    imageExtensions.includes(path.extname(file).toLowerCase())
-  );
-
-  // Reference db collection
-  const collectionRef = db.collection(projectName);
-
-  let entryCount = 0;
-  let duplicateCount = 0;
-  let errorCount = 0;
-  for (const imageFile of imageFiles) {
-    // Check if a document with the same imageName already exists
-    const existingDocSnapshot = await collectionRef
-      .where("imageName", "==", imageFile)
-      .get();
-
-    // ImageDocument with the same fileName already exists in the collection, skip
-    if (!existingDocSnapshot.empty) {
-      duplicateCount++;
-      continue;
+    if (!projectName || typeof projectName !== "string") {
+      return res.status(400).json({ error: "Invalid or missing projectName" });
     }
 
-    // Create a document for each image
-    const docData: ImageDocument = {
-      imageName: imageFile,
-      imageType: "",
-      rotation: 0,
-      timeOnImage: 0,
+    // Check if the image path exists on disk
+    const imagePath = envVariables.IMAGES_PATH;
 
-      groupText0: "",
-      groupCoordinates0: "",
-      groupText1: "",
-      groupCoordinates1: "",
-      groupText2: "",
-      groupCoordinates2: "",
+    if (!fs.existsSync(envVariables.IMAGES_PATH)) {
+      return res.status(404).send({ error: "Image path not found on disk" });
+    }
 
-      assignedTo: null,
-      status: "unclaimed",
-      createdAt: new Date(),
-      claimedAt: null,
-      finishedAt: null,
-      project: projectName,
-    };
+    // Get files, filter out only image files
+    const imageFiles = await Utils.getImageFiles(imagePath);
 
-    // Add the document to Firestore
-    try {
+    // Reference Firestore collection
+    const collectionRef = db.collection(projectName);
+
+    let entryCount = 0;
+    let duplicateCount = 0;
+
+    for (const imageFile of imageFiles) {
+      // Check if a document with the same imageName already exists
+      const existingDocSnapshot = await collectionRef
+        .where("imageName", "==", imageFile)
+        .get();
+
+      // ImageDocument with the same fileName already exists in the collection, skip
+      if (!existingDocSnapshot.empty) {
+        duplicateCount++;
+        continue;
+      }
+
+      // Create a document for each image
+      const docData: ImageDocument = {
+        imageName: imageFile,
+        // File extension without dot
+        imageType: path.extname(imageFile).substring(1),
+        rotation: 0,
+        timeOnImage: 0,
+        groupText0: "",
+        groupCoordinates0: "",
+        groupText1: "",
+        groupCoordinates1: "",
+        groupText2: "",
+        groupCoordinates2: "",
+        assignedTo: null,
+        status: "unclaimed",
+        createdAt: new Date(),
+        claimedAt: null,
+        finishedAt: null,
+        project: projectName,
+      };
+
+      // Add the document to Firestore
       await collectionRef.add(docData);
       entryCount++;
-    } catch (error) {
-      errorCount++;
     }
-  }
 
-  return res
-    .status(200)
-    .send(
-      `New database created for project: ${projectName}. Entries added: ${entryCount}. Duplicates: ${duplicateCount}. Errors: ${errorCount}`
-    );
+    return res.status(200).json({
+      message: `New database created for project: ${projectName}`,
+      entriesAdded: entryCount,
+      duplicates: duplicateCount,
+    });
+  } catch (error) {
+    return res.status(500).send(error);
+  }
 });
 
 /* -------------------------------------------------------------------------- */
