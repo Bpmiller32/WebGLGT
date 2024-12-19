@@ -1,94 +1,36 @@
-import express, { Request, Response, NextFunction } from "express";
+import express, { Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import bodyParser from "body-parser";
-import cors from "cors";
-import dotenv from "dotenv";
 import { db } from "./firebaseAdmin";
 import { Transaction } from "firebase-admin/firestore";
-
-interface AuthenticatedRequest extends Request {
-  user?: {
-    username: string;
-  };
-}
+import path from "path";
+import fs from "fs";
+import { AuthenticatedRequest } from "./types/authenticatedRequest";
+import { configureMiddleware, requireAuth } from "./middleware";
+import { envVariables } from "./envConfig";
+import { ImageDocument } from "./types/imageDocument";
 
 /* -------------------------------------------------------------------------- */
 /*                                    Setup                                   */
 /* -------------------------------------------------------------------------- */
-// Load environment variables
-dotenv.config();
-
 // Expressjs fields
 const app = express();
 const port = 3000;
 
-// Keys
-const JWT_KEY = process.env.JWT_KEY;
-const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY;
-if (!JWT_KEY) {
-  throw new Error("JWT_KEY is not defined in the environment variables");
-}
-
-// Middleware to parse JSON bodies
-app.use(bodyParser.json());
-
-// Middleware configure CORS
-app.use(
-  cors({
-    origin: ["http://localhost:5173", "https://webglgt.web.app"], // Replace with approved frontend URLs
-    methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type"],
-  })
-);
-
-// Middleware authorization
-const requireAuth = (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-) => {
-  // Check for header
-  const authHeader = req.headers["authorization"];
-  if (!authHeader) {
-    return res.status(401).send("No authorization header");
-  }
-
-  // Check for header value's Bearer prefix
-  const headerParts = authHeader.split(" ");
-  if (headerParts.length !== 2 || headerParts[0] !== "Bearer") {
-    return res.status(401).send("Invalid authorization format");
-  }
-
-  // Verify the token itself against the JWT_KEY
-  const token = headerParts[1];
-  jwt.verify(token, JWT_KEY, (err, decoded) => {
-    if (err || !decoded) {
-      return res.status(401).send("Invalid token");
-    }
-
-    // Check that decoded is an object that contains a key username
-    if (typeof decoded === "object" && "username" in decoded) {
-      // Attach it to the request and pass the request down the pipline
-      req.user = { username: (decoded as any).username };
-      return next();
-    } else {
-      return res.status(401).send("Invalid token payload");
-    }
-  });
-};
+// Middleware
+configureMiddleware(app);
 
 /* -------------------------------------------------------------------------- */
 /*                                  Requests                                  */
 /* -------------------------------------------------------------------------- */
 
-/* --------------------------- Test echo function --------------------------- */
+/* -------------------------------- Ping Echo ------------------------------- */
 app.get("/pingServer", (req: Request, res: Response) => {
   res.status(200).send("Hello, World!");
 });
 
 /* -------------------------- Serve Vision API key -------------------------- */
 app.get("/getApiKey", (req: Request, res: Response) => {
-  res.status(200).send(GOOGLE_VISION_API_KEY);
+  res.status(200).send(envVariables.GOOGLE_VISION_API_KEY);
 });
 
 /* ------------------------------- Login Route ------------------------------ */
@@ -103,7 +45,8 @@ app.post("/login", async (req: Request, res: Response) => {
   try {
     // Query Firestore for the user document by username (document ID)
     const usersRef = db.collection("users");
-    const userDoc = await usersRef.doc(username).get();
+    const userDocRef = usersRef.doc(username);
+    const userDoc = await userDocRef.get();
 
     if (!userDoc.exists) {
       return res.status(401).send("Invalid username");
@@ -118,10 +61,15 @@ app.post("/login", async (req: Request, res: Response) => {
       return res.status(401).send("Invalid username or password");
     }
 
+    // Password is valid, update the lastLoggedInTime
+    await userDocRef.update({
+      lastLoggedInTime: new Date().toISOString(),
+    });
+
     // Password is valid, create a JWT
     const token = jwt.sign(
       { username: username },
-      JWT_KEY,
+      envVariables.JWT_KEY,
       { expiresIn: "1h" } // token expires in 1 hour, adjust as needed
     );
 
@@ -145,11 +93,16 @@ app.get(
     }
 
     try {
+      // Update the lastAccessedTime field for the user
+      const userRef = db.collection("users").doc(username);
+      await userRef.update({
+        lastAccessedTime: new Date().toISOString(),
+      });
+
       // Look to grab next image in collection
-      const result = await db.runTransaction(
+      const dbResult = await db.runTransaction(
         // Use a Firestore transaction to atomically query
         async (transaction: Transaction) => {
-          const userRef = db.collection("users").doc(username);
           const userDoc = await transaction.get(userRef);
           const userData = userDoc.data() || {
             currentEntryId: null,
@@ -162,65 +115,282 @@ app.get(
             history.push(userData.currentEntryId);
           }
 
-          // Query for an unclaimed entry
-          const entriesRef = db.collection("entries");
-          const query = entriesRef
+          // Ensure history has no more than 5 entries
+          if (history.length > 5) {
+            history.shift(); // Remove the oldest entry
+          }
+
+          // TODO: grab collection name from body
+          const entriesRef = db.collection("test");
+
+          // Query for an unclaimed entry, try to find unclaimed entry first
+          let query = entriesRef
             .where("status", "==", "unclaimed")
             .orderBy("createdAt", "asc")
             .limit(1);
 
           // Run the query, get a snapshot of the db
-          const snapshot = await transaction.get(query);
+          let snapshot = await transaction.get(query);
 
-          // No entries available, just update the user doc with no changes to currentEntryId
+          let entryDoc;
+          let entryData;
+          let entryRef;
+
+          // No unclaimed entries found
           if (snapshot.empty) {
-            transaction.set(userRef, { history }, { merge: true });
-            return null;
+            // Try finding an inProgress entry assigned to this user
+            query = entriesRef
+              .where("status", "==", "inProgress")
+              .where("assignedTo", "==", username)
+              .orderBy("createdAt", "asc")
+              // Increase the limit so we can skip the currentEntryId if encountered.
+              .limit(10);
+
+            // Run the query, get a snapshot of the db
+            snapshot = await transaction.get(query);
+
+            // No available entries (unclaimed or already inProgress for this user)
+            if (snapshot.empty) {
+              transaction.set(userRef, { history }, { merge: true });
+              return null;
+            }
+
+            // Find an inProgress entry that isn't the current entry
+            const candidateDoc = snapshot.docs.find(
+              (doc) => doc.id !== userData.currentEntryId
+            );
+
+            // All inProgress entries belong to currentEntryId, no other entry to return
+            if (!candidateDoc) {
+              transaction.set(userRef, { history }, { merge: true });
+              return null;
+            }
+
+            // Found a suitable inProgress entry
+            entryDoc = candidateDoc;
+            entryRef = entryDoc.ref;
+            entryData = entryDoc.data();
+
+            // Since it's already inProgress and assigned to this user, we don't need to update the entry. Just set currentEntryId and history.
+            transaction.set(
+              userRef,
+              {
+                currentEntryId: entryDoc.id,
+                history: history,
+              },
+              { merge: true }
+            );
+
+            // Return the valid db entry, only part to care about on valid is imageName
+            return {
+              id: entryDoc.id,
+              imageName: entryData.imageName,
+              assignedTo: username,
+              status: "inProgress",
+            };
+          } else {
+            // Unclaimed entry found
+            entryDoc = snapshot.docs[0];
+            entryRef = entryDoc.ref;
+            entryData = entryDoc.data();
+
+            // Double-check status is still unclaimed
+            if (entryData.status !== "unclaimed") {
+              // If somehow changed, return null
+              return null;
+            }
+
+            // Assign to the user who made the request
+            transaction.update(entryRef, {
+              assignedTo: username,
+              status: "inProgress",
+              claimedAt: new Date(),
+            });
+
+            // Update user doc
+            transaction.set(
+              userRef,
+              {
+                currentEntryId: entryDoc.id,
+                history: history,
+              },
+              { merge: true }
+            );
+
+            // Return the valid db entry, only part to care about on valid is imageName
+            return {
+              id: entryDoc.id,
+              imageName: entryData.imageName,
+              assignedTo: username,
+              status: "inProgress",
+            };
+          }
+        }
+      );
+
+      // No viable images in collection to grab
+      if (!dbResult) {
+        return res.status(404).send({ message: "No available entries" });
+      }
+
+      // Check if Firestore result has an imageName
+      if (!dbResult.imageName) {
+        return res
+          .status(400)
+          .send({ error: "Image name is missing in entry" });
+      }
+
+      // Construct the full path to the image
+      const imagePath = path.join(envVariables.IMAGES_PATH, dbResult.imageName);
+
+      // Check if the image exists on disk
+      if (!fs.existsSync(imagePath)) {
+        return res.status(404).send({ error: "Image not found on disk" });
+      }
+
+      // Read and encode the image as a Base64 string
+      const imageBuffer = fs.readFileSync(imagePath);
+      const imageBlob = imageBuffer.toString("base64");
+
+      // Spread dbResult, add imageBlob, send the response
+      return res.send({
+        ...dbResult,
+        imageBlob,
+      });
+    } catch (error: any) {
+      // This is a "FAILED_PRECONDITION" error, often related to missing indexes
+      if (error.code === 9) {
+        return res
+          .status(400)
+          .send({ error: "Index required or failed precondition" });
+      }
+
+      return res.status(500).send({ error: "Internal server error" });
+    }
+  }
+);
+
+/* ----------------------------- Previous image ----------------------------- */
+app.get(
+  "/previous",
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response) => {
+    // Grab username from request modified by requireAuth middleware
+    const username = req.user?.username;
+
+    if (!username) {
+      return res.status(401).send("User not authenticated");
+    }
+
+    try {
+      // Update the lastAccessedTime field for the user
+      const userRef = db.collection("users").doc(username);
+      await userRef.update({
+        lastAccessedTime: new Date().toISOString(),
+      });
+
+      const dbResult = await db.runTransaction(
+        // Use a Firestore transaction to atomically query
+        async (transaction: Transaction) => {
+          const userDoc = await transaction.get(userRef);
+          const userData = userDoc.data()!;
+          const history = userData.history || [];
+
+          // Check if history is empty before doing any writes
+          if (history.length === 0) {
+            return { message: "No previous entry" };
           }
 
-          // Entry available, grab first (only, based on limit(1)), check if it is somehow unclaimed
-          const doc = snapshot.docs[0];
-          const entryRef = doc.ref;
-          const entryData = doc.data();
+          // Pop the last visited entry from history
+          const prevEntryId = history.pop();
 
-          if (entryData.status !== "unclaimed") {
-            return null;
-          }
+          // Fix for bug: get the entryDoc as well before any writes, after this all reads are done and can now write (firestore requirement)
+          // TODO: grab collection name from body instead of test
+          const entryRef = db.collection("test").doc(prevEntryId);
+          const entryDoc = await transaction.get(entryRef);
 
-          // Assign to the user who made the request
+          // Update user doc
+          transaction.set(
+            userRef,
+            {
+              currentEntryId: prevEntryId,
+              history: history,
+            },
+            { merge: true }
+          );
+
+          // Reclaim the previous entry for this user
+          const entryData = entryDoc.data()!;
+
           transaction.update(entryRef, {
             assignedTo: username,
             status: "inProgress",
             claimedAt: new Date(),
           });
 
-          // Update user doc
           transaction.set(
             userRef,
             {
-              currentEntryId: doc.id,
+              currentEntryId: prevEntryId,
               history: history,
             },
             { merge: true }
           );
 
           return {
-            id: doc.id,
-            ...entryData,
+            id: prevEntryId,
+            imageName: entryData.imageName,
             assignedTo: username,
             status: "inProgress",
           };
         }
       );
 
-      // No viable images in collection to grab
-      if (!result) {
-        return res.status(404).send({ message: "No available entries" });
+      // If no previous entry
+      if (
+        dbResult &&
+        "message" in dbResult &&
+        dbResult.message === "No previous entry"
+      ) {
+        return res.status(404).send({ message: "No previous entry" });
       }
 
-      // Return the db entry
-      return res.send(result);
+      // If previous entry not found
+      if (
+        dbResult &&
+        "message" in dbResult &&
+        dbResult.message === "Previous entry not found"
+      ) {
+        return res.status(404).send(dbResult);
+      }
+
+      // Check if we have a valid dbResult with imageName
+      if (!dbResult || !("imageName" in dbResult)) {
+        return res
+          .status(400)
+          .send({ error: "Image name is missing in entry" });
+      }
+
+      const imageName = dbResult.imageName as string;
+
+      // Construct the full path to the image
+      const imagePath = path.join(envVariables.IMAGES_PATH, imageName);
+
+      // Check if the image exists on disk
+      if (!fs.existsSync(imagePath)) {
+        return res.status(404).send({ error: "Image not found on disk" });
+      }
+
+      // Read and encode the image as a Base64 string
+      const imageBuffer = fs.readFileSync(imagePath);
+      const imageBlob = imageBuffer.toString("base64");
+
+      return res.send({
+        ...dbResult,
+        imageBlob,
+      });
     } catch (error) {
+      console.error("Error retrieving previous entry:", error);
       return res.status(500).send({ error: "Internal server error" });
     }
   }
@@ -240,7 +410,7 @@ app.get("/protected", (req: Request, res: Response) => {
 
   // Verify the token itself against the JWT_KEY
   const token = authHeader.split(" ")[1];
-  jwt.verify(token, JWT_KEY, (err, decoded) => {
+  jwt.verify(token, envVariables.JWT_KEY, (err, decoded) => {
     if (err || !decoded) {
       return res.status(403).json({ message: "Failed to authenticate token" });
     }
@@ -248,6 +418,81 @@ app.get("/protected", (req: Request, res: Response) => {
     // Send response with message and token
     return res.json({ message: "Welcome to the protected route!", decoded });
   });
+});
+
+/* ------------------------- Create a new project db ------------------------ */
+app.post("/createImageDatabase", async (req: Request, res: Response) => {
+  // Grab project/db name from request
+  const { projectName } = req.body;
+
+  // Check if the image path exists on disk
+  if (!fs.existsSync(envVariables.IMAGES_PATH)) {
+    return res.status(404).send({ error: "Image path not found on disk" });
+  }
+
+  // Get list of files in the directory
+  const files = fs.readdirSync(envVariables.IMAGES_PATH);
+
+  // Filter out only image files
+  const imageExtensions = [".jpg", ".jpeg", ".png", ".bmp", ".gif"];
+  const imageFiles = files.filter((file) =>
+    imageExtensions.includes(path.extname(file).toLowerCase())
+  );
+
+  // Reference db collection
+  const collectionRef = db.collection(projectName);
+
+  let entryCount = 0;
+  let duplicateCount = 0;
+  let errorCount = 0;
+  for (const imageFile of imageFiles) {
+    // Check if a document with the same imageName already exists
+    const existingDocSnapshot = await collectionRef
+      .where("imageName", "==", imageFile)
+      .get();
+
+    // ImageDocument with the same fileName already exists in the collection, skip
+    if (!existingDocSnapshot.empty) {
+      duplicateCount++;
+      continue;
+    }
+
+    // Create a document for each image
+    const docData: ImageDocument = {
+      imageName: imageFile,
+      imageType: "",
+      rotation: 0,
+      timeOnImage: 0,
+
+      groupText0: "",
+      groupCoordinates0: "",
+      groupText1: "",
+      groupCoordinates1: "",
+      groupText2: "",
+      groupCoordinates2: "",
+
+      assignedTo: null,
+      status: "unclaimed",
+      createdAt: new Date(),
+      claimedAt: null,
+      finishedAt: null,
+      project: projectName,
+    };
+
+    // Add the document to Firestore
+    try {
+      await collectionRef.add(docData);
+      entryCount++;
+    } catch (error) {
+      errorCount++;
+    }
+  }
+
+  return res
+    .status(200)
+    .send(
+      `New database created for project: ${projectName}. Entries added: ${entryCount}. Duplicates: ${duplicateCount}. Errors: ${errorCount}`
+    );
 });
 
 /* -------------------------------------------------------------------------- */
