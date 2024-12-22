@@ -2,7 +2,6 @@
 /*          Handler for creating, joining, managing selection groups          */
 /* -------------------------------------------------------------------------- */
 
-import Emitter from "../utils/eventEmitter";
 import * as THREE from "three";
 import Experience from "../experience";
 import Camera from "../camera";
@@ -49,32 +48,6 @@ export default class SelectionGroupManager {
     // Init
     this.initializeFields();
 
-    // Events
-    Emitter.on("mouseDown", (event) => {
-      this.mouseDown(event);
-    });
-    Emitter.on("mouseMove", (event) => {
-      this.mouseMove(event);
-    });
-    Emitter.on("mouseUp", (event) => {
-      this.mouseUp(event);
-    });
-    Emitter.on("changeSelectionGroup", (groupNumber) => {
-      this.changeSelectionGroup(groupNumber);
-    });
-    Emitter.on("stitchBoxes", () => {
-      this.stitchBoxes();
-    });
-    Emitter.on("resetImage", () => {
-      this.destroy();
-
-      this.activeSelectionGroup = 0;
-
-      this.world.delimiterImages.forEach((delimiterImage) => {
-        delimiterImage.resetPosition();
-      });
-    });
-
     // Debug
     if (this.experience.debug?.isActive) {
       this.debug = this.experience.debug;
@@ -106,7 +79,7 @@ export default class SelectionGroupManager {
   }
 
   /* ------------------------------ Event methods ----------------------------- */
-  private mouseDown(event: MouseEvent) {
+  public mouseDown(event: MouseEvent): void {
     // Do not continue if interacting with gui/login page, are not a left click, are in image adjust mode, have already joined images once
     if (
       GtUtils.isInteractingWithGUI(event) ||
@@ -144,7 +117,7 @@ export default class SelectionGroupManager {
     this.scene.add(this.activeMesh);
   }
 
-  private mouseMove(event: MouseEvent) {
+  public mouseMove(event: MouseEvent): void {
     // MoveEvent 1: Handle rotating of all existing clipBoxes when in move mode
     if (this.input.isShiftLeftPressed && !this.input.isRightClickPressed) {
       this.rotateAllSelectionGroups();
@@ -157,7 +130,7 @@ export default class SelectionGroupManager {
     }
   }
 
-  private mouseUp(event: MouseEvent) {
+  public mouseUp(event: MouseEvent): void {
     // Do not continue if interacting with gui/login page, are not a left click
     if (
       GtUtils.isInteractingWithGUI(event) ||
@@ -186,12 +159,12 @@ export default class SelectionGroupManager {
     this.addActiveMeshToGroup();
   }
 
-  private changeSelectionGroup(groupNumber: number) {
+  public changeSelectionGroup(groupNumber: number): void {
     // Change group number
     this.activeSelectionGroup = groupNumber;
   }
 
-  private stitchBoxes() {
+  public stitchBoxes(): void {
     // Do not continue if selectionGroups are already joined or are all empty
     if (
       this.areSelectionGroupsJoined ||

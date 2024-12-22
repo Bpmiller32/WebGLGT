@@ -32,7 +32,7 @@ export default class Experience {
   public world!: World;
 
   // Singleton check/constructor
-  public static getInstance(): Experience {
+  public static getInstance() {
     if (!Experience.instance) {
       Experience.instance = new Experience();
     }

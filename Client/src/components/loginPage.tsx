@@ -1,5 +1,5 @@
 import Emitter from "../webgl/utils/eventEmitter";
-import { pingServer } from "../apiHandler";
+import ApiHandler from "../apiHandler";
 import { defineComponent, onMounted, PropType, ref } from "vue";
 import AppLogo from "./subcomponents/AppLogo";
 import ServerStatusBadge from "./subcomponents/ServerStatusBadge";
@@ -31,7 +31,7 @@ export default defineComponent({
     /* ----------------------------- Lifecycle Events ---------------------------- */
     onMounted(async () => {
       try {
-        isServerOnline.value = await pingServer(props.apiUrl);
+        isServerOnline.value = await ApiHandler.pingServer(props.apiUrl);
         isDebugEnabled.value = window.location.hash === "#debug";
       } catch (error) {
         console.error("Error during server ping:", error);
@@ -40,23 +40,27 @@ export default defineComponent({
 
     /* ----------------------------- Template events ---------------------------- */
     const handleStartAppClicked = async () => {
-      // TODO: add back after debug, enables Firebase logins again
-      try {
-        // const docSnap = await getDoc(doc(db, "logins", username.value));
-        // if (docSnap.exists()) {
-        //   const { password: storedPassword } = docSnap.data();
-        //   if (password.value !== storedPassword)
-        //     throw new Error("Invalid credentials");
-        //   isButtonEnabled.value = false;
-        //   Emitter.emit("startApp");
-        // }
-      } catch {
-        handleLoginError();
+      // TODO: remove after debug
+      // Retrieve the token from localStorage
+      const token = localStorage.getItem("jwtToken");
+      if (!token) {
+        throw new Error("No token found. Please log in.");
       }
 
-      // TODO: remove after debugging
       Emitter.emit("startApp");
-      console.log("Debugging, login bypased");
+      return;
+
+      const isAuthenticated = await ApiHandler.login(
+        props.apiUrl,
+        username.value,
+        password.value
+      );
+
+      if (isAuthenticated) {
+        Emitter.emit("startApp");
+      } else {
+        handleLoginError();
+      }
     };
 
     const handleDebugButtonClicked = () => {
@@ -65,7 +69,6 @@ export default defineComponent({
 
     const handleLoginError = () => {
       didLoginFail.value = true;
-      console.error("Login failed: Incorrect username or password");
 
       if (loginErrorLabelRef.value) {
         loginErrorLabelRef.value.classList.remove("animate-shake");

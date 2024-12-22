@@ -57,7 +57,7 @@ export default class VisualCueManager {
     return new THREE.Color(colorHex);
   }
 
-  public setPositionAndShow(event: MouseEvent): void {
+  public setPositionAndShow(event: MouseEvent) {
     if (
       GtUtils.isInteractingWithGUI(event) ||
       event.button !== 0 ||
@@ -85,7 +85,7 @@ export default class VisualCueManager {
     mat.opacity = this.defaultVisualCueOpacity;
   }
 
-  public changeColor(groupNumber: number): void {
+  public changeColor(groupNumber: number) {
     // Dispose old material
     GtUtils.disposeMaterialHelper(this.visualCueMesh.material);
 
@@ -98,21 +98,25 @@ export default class VisualCueManager {
       opacity: 0,
     });
 
+    // Apply the new material
     this.visualCueMesh.material = newMaterial;
   }
 
-  public update(): void {
+  public update() {
     // Fade out the visual cue
     const material = this.visualCueMesh.material as THREE.MeshBasicMaterial;
 
+    // Scale the visual cue to match the camera zoom
+    const scaleVal = 1 / this.camera.orthographicCamera.zoom;
+    this.visualCueMesh.scale.set(scaleVal, scaleVal, scaleVal);
+
+    // Fade out the visual cue
     if (material.opacity > -1) {
-      const scaleVal = 1 / this.camera.orthographicCamera.zoom;
-      this.visualCueMesh.scale.set(scaleVal, scaleVal, scaleVal);
       material.opacity -= this.fadeSpeed * this.time.delta;
     }
   }
 
-  public destroy(): void {
+  public destroy() {
     GtUtils.disposeMeshHelper(this.visualCueMesh);
   }
 }

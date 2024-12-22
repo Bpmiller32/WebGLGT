@@ -1,9 +1,7 @@
 import Emitter from "../webgl/utils/eventEmitter";
 import { defineComponent, PropType, ref } from "vue";
 import Experience from "../webgl/experience";
-import { fillInForm, gotoNextImage } from "../apiHandler";
-import { db } from "../firebase";
-import { collection, doc, addDoc, getDoc, updateDoc } from "firebase/firestore";
+import ApiHander from "../apiHandler";
 import ActionButton from "./subcomponents/ActionButton";
 import MailTypeButton from "./subcomponents/MailTypeButton";
 import GroupTextArea from "./subcomponents/GroupTextArea";
@@ -12,6 +10,10 @@ export default defineComponent({
   props: {
     apiUrl: {
       type: String as PropType<string>,
+      required: true,
+    },
+    webglExperience: {
+      type: Object as PropType<Experience>,
       required: true,
     },
   },
@@ -23,9 +25,7 @@ export default defineComponent({
     const GroupTextArea1Active = ref();
     const GroupTextArea2Active = ref();
 
-    // GL, api setup
-    const experience = Experience.getInstance();
-    let haveUpdatedFirebaseOnce = false;
+    // Status
     const imageDownloadCount = ref(0);
 
     // MailType tags
@@ -36,7 +36,7 @@ export default defineComponent({
 
     /* ---------------------------- Lifecycle Events ---------------------------- */
     Emitter.on("fillInForm", async () => {
-      await submitToDb();
+      // await submitToDb();
     });
     Emitter.on("gotoNextImage", async () => {
       await loadNextImage();
@@ -71,7 +71,7 @@ export default defineComponent({
       isMpImage.value = false;
       isBadImage.value = true;
 
-      await submitToDb();
+      // await submitToDb();
       await loadNextImage();
     });
     Emitter.on("loadedFromApi", () => {
@@ -79,125 +79,112 @@ export default defineComponent({
     });
 
     /* ---------------------------- Helper functions ---------------------------- */
-    const submitToDb = async () => {
-      // Define data request body
-      const data = {
-        address: GroupTextArea0Active.value.value,
+    // const submitToDb = async () => {
+    //   // Define data request body
+    //   const data = {
+    //     address: GroupTextArea0Active.value.value,
 
-        isMpImage: isMpImage.value,
-        isHwImage: false,
-        isBadImage: isBadImage.value,
-      };
+    //     isMpImage: isMpImage.value,
+    //     isHwImage: false,
+    //     isBadImage: isBadImage.value,
+    //   };
 
-      // Change the data based on gui, get the textarea content and split into lines
-      const lines = GroupTextArea0Active.value.value.split("\n");
+    //   // Change the data based on gui, get the textarea content and split into lines
+    //   const lines = GroupTextArea0Active.value.value.split("\n");
 
-      // Prepend each line with the corresponding prefix
-      const prefixes = ["PO:", "VS:", "TS:"];
+    //   // Prepend each line with the corresponding prefix
+    //   const prefixes = ["PO:", "VS:", "TS:"];
 
-      // Hacky vendor only
-      if (isVendorOnly.value) {
-        data.address = "VS:" + GroupTextArea0Active.value.value;
-      } else {
-        const modifiedLines = lines.map(
-          (line: string, index: number) => `${prefixes[index] || ""}${line}`
-        );
+    //   // Hacky vendor only
+    //   if (isVendorOnly.value) {
+    //     data.address = "VS:" + GroupTextArea0Active.value.value;
+    //   } else {
+    //     const modifiedLines = lines.map(
+    //       (line: string, index: number) => `${prefixes[index] || ""}${line}`
+    //     );
 
-        data.address = modifiedLines.join("\n");
-      }
+    //     data.address = modifiedLines.join("\n");
+    //   }
 
-      // Don't prepend if the textArea is blank
-      if (lines.length === 1 && lines[0] === "") {
-        data.address = "";
-      }
+    //   // Don't prepend if the textArea is blank
+    //   if (lines.length === 1 && lines[0] === "") {
+    //     data.address = "";
+    //   }
 
-      // Send POST request to server
-      await fillInForm(props.apiUrl, data);
+    //   // Send POST request to server
+    //   await fillInForm(props.apiUrl, data);
 
-      // Gate to prevent multiple firebase calls on same session/image
-      if (haveUpdatedFirebaseOnce === true) {
-        return;
-      }
+    //   // Gate to prevent multiple firebase calls on same session/image
+    //   if (haveUpdatedFirebaseOnce === true) {
+    //     return;
+    //   }
 
-      // Update firebase stats
-      try {
-        // Get a reference to the document
-        const docRef = doc(db, "globalStats", "tjxStatistics");
+    //   // Update firebase stats
+    //   try {
+    //     // Get a reference to the document
+    //     const docRef = doc(db, "globalStats", "tjxStatistics");
 
-        // Fetch the document
-        const docSnap = await getDoc(docRef);
+    //     // Fetch the document
+    //     const docSnap = await getDoc(docRef);
 
-        // Update specific fields in the document
-        const document = docSnap.data()!;
-        document.imagesProcessed++;
-        if (isMpImage.value) {
-          document.numberOfMpImages++;
-        }
-        if (isBadImage.value) {
-          document.numberOfBadImages++;
-        }
+    //     // Update specific fields in the document
+    //     const document = docSnap.data()!;
+    //     document.imagesProcessed++;
+    //     if (isMpImage.value) {
+    //       document.numberOfMpImages++;
+    //     }
+    //     if (isBadImage.value) {
+    //       document.numberOfBadImages++;
+    //     }
 
-        // Update the document in firestore
-        await updateDoc(docRef, {
-          imagesProcessed: document.imagesProcessed,
-          numberOfMpImages: document.numberOfMpImages,
-          numberOfHwImages: document.numberOfHwImages,
-          numberOfBadImages: document.numberOfBadImages,
-        });
+    //     // Update the document in firestore
+    //     await updateDoc(docRef, {
+    //       imagesProcessed: document.imagesProcessed,
+    //       numberOfMpImages: document.numberOfMpImages,
+    //       numberOfHwImages: document.numberOfHwImages,
+    //       numberOfBadImages: document.numberOfBadImages,
+    //     });
 
-        // Set firebase gate to stop multiple uploads
-        haveUpdatedFirebaseOnce = true;
-      } catch {
-        console.error("Error getting stats document from firestore");
-      }
+    //     // Set firebase gate to stop multiple uploads
+    //     haveUpdatedFirebaseOnce = true;
+    //   } catch {
+    //     console.error("Error getting stats document from firestore");
+    //   }
 
-      // Add image data to firebase
-      try {
-        // Reference to the collection
-        const collectionRef = collection(db, "tjxImageData");
+    //   // Add image data to firebase
+    //   try {
+    //     // Reference to the collection
+    //     const collectionRef = collection(db, "tjxImageData");
 
-        // Set image type as a string
-        let imageType = "";
-        if (isMpImage.value) {
-          imageType = "mp";
-        }
-        if (isBadImage.value) {
-          imageType = "bad";
-        }
+    //     // Set image type as a string
+    //     let imageType = "";
+    //     if (isMpImage.value) {
+    //       imageType = "mp";
+    //     }
+    //     if (isBadImage.value) {
+    //       imageType = "bad";
+    //     }
 
-        // Data to be added
-        const newData = {
-          imageName: imageNameRef.value.innerText,
-          imageType: imageType,
-          timeOnImage: experience.world.imageContainer?.stopwatch.elapsedTime,
-          rotation: experience.world.imageContainer?.imageRotation,
-          addressSubmitted: data.address,
-          dateSubmitted: new Date(),
-        };
+    //     // Data to be added
+    //     const newData = {
+    //       imageName: imageNameRef.value.innerText,
+    //       imageType: imageType,
+    //       timeOnImage: experience.world.imageContainer?.stopwatch.elapsedTime,
+    //       rotation: experience.world.imageContainer?.imageRotation,
+    //       addressSubmitted: data.address,
+    //       dateSubmitted: new Date(),
+    //     };
 
-        // Add a new document with an auto-generated ID
-        await addDoc(collectionRef, newData);
-      } catch {
-        console.error("Error adding image data document to firestore");
-      }
-    };
+    //     // Add a new document with an auto-generated ID
+    //     await addDoc(collectionRef, newData);
+    //   } catch {
+    //     console.error("Error adding image data document to firestore");
+    //   }
+    // };
 
     const loadNextImage = async () => {
-      // Navigate to the next image then download
-      const image = await gotoNextImage(props.apiUrl);
-
-      if (!image) {
-        return;
-      }
-
-      // Reset firebase gate
-      haveUpdatedFirebaseOnce = false;
-
-      // Start image load into webgl scene as a texture, resourceLoader will trigger an event when finished loading
-      experience.resources.loadGtImageFromApi(image.imageBlob);
-
-      // Set the image's name in the gui
-      imageNameRef.value.innerText = image.imageName + ".jpg";
+      // Pull next viable image from backend
+      await ApiHander.handleNextImage(props.apiUrl, props.webglExperience);
 
       // Clear all fields for new image, except isMpImage since that should be the default
       GroupTextArea0Active.value.value = "";
@@ -211,7 +198,7 @@ export default defineComponent({
       <article class="overflow-hidden w-[27rem] mt-5 ml-5 p-4 bg-slate-800/85 rounded-2xl">
         {/* Filename, debug info, navigation buttons */}
         <section class="flex justify-between items-center">
-          <div>
+          <div class="w-32">
             <div class="flex items-center w-full">
               <p class="mr-1 font-medium text-gray-100 text-xs text-ellipsis">
                 Image:

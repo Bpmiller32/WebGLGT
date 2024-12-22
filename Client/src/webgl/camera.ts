@@ -11,6 +11,26 @@ import Input from "./utils/input";
 import Debug from "./utils/debug";
 import { debugCamera } from "./utils/debug/debugCamera";
 
+// Add constants for configuration
+const CAMERA_DEFAULTS = {
+  SENSITIVITY: {
+    MOVEMENT: 0.1,
+    ZOOM: 0.1,
+    ROTATION: 0.03,
+    TRANSLATION: 0.03,
+  },
+  ZOOM: {
+    DEFAULT: 1,
+    MIN: 0.5,
+    MAX: 10,
+  },
+  POSITION: {
+    Z: 10,
+  },
+} as const;
+
+type CameraType = "orthographic" | "perspective";
+
 export default class Camera {
   private experience: Experience;
   private scene: THREE.Scene;
@@ -19,7 +39,7 @@ export default class Camera {
   private input: Input;
   public debug?: Debug;
 
-  public instance: THREE.Camera;
+  public instance!: THREE.Camera;
   public orthographicCamera!: THREE.OrthographicCamera;
   public perspectiveCamera!: THREE.PerspectiveCamera;
   public cameraType!: string;
@@ -30,6 +50,14 @@ export default class Camera {
   private sensitivityZoom: number;
   private maximumZoomLevel: number;
 
+  private readonly eventHandlers: {
+    mouseDown: (event: MouseEvent) => void;
+    mouseMove: (event: MouseEvent) => void;
+    mouseUp: (event: MouseEvent) => void;
+    mouseWheel: (event: WheelEvent) => void;
+    switchCamera: () => void;
+  };
+
   constructor() {
     // Experience fields
     this.experience = Experience.getInstance();
@@ -39,44 +67,38 @@ export default class Camera {
     this.input = this.experience.input;
 
     // Class fields
-    this.targetPostion = new THREE.Vector3();
-    this.targetZoom = 1;
-    this.sensitivityMovement = 0.1;
-    this.sensitivityZoom = 0.1;
-    this.maximumZoomLevel = 10;
+    this.targetPostion = new THREE.Vector3(0, 0, CAMERA_DEFAULTS.POSITION.Z);
+    this.targetZoom = CAMERA_DEFAULTS.ZOOM.DEFAULT;
+    this.sensitivityMovement = CAMERA_DEFAULTS.SENSITIVITY.MOVEMENT;
+    this.sensitivityZoom = CAMERA_DEFAULTS.SENSITIVITY.ZOOM;
+    this.maximumZoomLevel = CAMERA_DEFAULTS.ZOOM.MAX;
     this.cameraType = "orthographic";
 
+    // Bind event handlers to preserve context
+    this.eventHandlers = {
+      mouseDown: this.mouseDown.bind(this),
+      mouseMove: this.mouseMove.bind(this),
+      mouseUp: this.mouseUp.bind(this),
+      mouseWheel: this.mouseWheel.bind(this),
+      switchCamera: this.switchCamera.bind(this),
+    };
+
+    this.initializeCameras();
+  }
+
+  /* ---------------------- Instance methods and controls --------------------- */
+  private initializeCameras() {
     this.setOrthographicInstance();
-    // this.setPerspectiveInstance();
 
-    // Default use the orthographic camera
-    this.instance = this.orthographicCamera;
-
-    // Events
-    Emitter.on("mouseDown", (event) => {
-      this.mouseDown(event);
-    });
-    Emitter.on("mouseMove", (event) => {
-      this.mouseMove(event);
-    });
-    Emitter.on("mouseUp", (event) => {
-      this.mouseUp(event);
-    });
-    Emitter.on("mouseWheel", (event) => {
-      this.mouseWheel(event);
-    });
-    Emitter.on("switchCamera", () => {
-      this.switchCamera();
-    });
-
-    // Debug GUI
     if (this.experience.debug?.isActive) {
       this.debug = this.experience.debug;
       this.setPerspectiveInstance();
       debugCamera(this);
     }
+
+    this.instance = this.orthographicCamera;
   }
-  /* ---------------------- Instance methods and controls --------------------- */
+
   private setOrthographicInstance() {
     const aspectRatio = this.sizes.width / this.sizes.height;
     const frustumSize = this.maximumZoomLevel;
@@ -152,26 +174,19 @@ export default class Camera {
     this.input.isRightClickPressed = true;
   }
 
-  private mouseMove(event: MouseEvent) {
-    // TODO: debug
-    // if (this.input.isShiftLeftPressed && !this.input.isRightClickPressed) {
-    //   const deltaX = event.movementX;
-    //   const deltaY = event.movementY;
-
-    //   this.instance.rotation.z -= deltaY * 0.01;
-    //   this.instance.rotation.z -= deltaX * 0.01;
-    //   return;
-    // }
-
+  private mouseMove(event: MouseEvent): void {
+    // Prevent camera movement if right click is not pressed
     if (!this.input.isRightClickPressed) {
       return;
     }
 
+    // Calculate the movement delta based on the mouse movement and sensitivity
     const deltaMove = new THREE.Vector2(event.movementX, event.movementY);
+    const delta = this.time.delta;
 
-    // Move the camera in the opposite direction of the drag
-    this.targetPostion.x -= deltaMove.x * this.time.delta;
-    this.targetPostion.y += deltaMove.y * this.time.delta;
+    // Update the target position based on the movement delta
+    this.targetPostion.x -= deltaMove.x * delta;
+    this.targetPostion.y += deltaMove.y * delta;
   }
 
   private mouseUp(event: MouseEvent) {
@@ -180,32 +195,38 @@ export default class Camera {
     }
   }
 
-  private mouseWheel(event: WheelEvent) {
-    // Check if the event target is an HTMLTextAreaElement
+  private mouseWheel(event: WheelEvent): void {
+    // Prevent zooming in/out on text areas
     if (event.target instanceof HTMLTextAreaElement) {
-      // Allow scrolling inside the textarea
       return;
     }
 
-    // Zoom in and out
-    this.targetZoom += event.deltaY * -this.sensitivityZoom * this.time.delta;
-    // Clamp the zoom level to prevent inverting the view or zooming too far out
-    this.targetZoom = Math.max(
-      0.5,
-      Math.min(this.maximumZoomLevel, this.targetZoom)
+    // Calculate new zoom level based on mouse wheel movement and sensitivity
+    const newZoom =
+      this.targetZoom + event.deltaY * -this.sensitivityZoom * this.time.delta;
+
+    // Clamp the new zoom level to the minimum and maximum zoom levels
+    this.targetZoom = THREE.MathUtils.clamp(
+      newZoom,
+      CAMERA_DEFAULTS.ZOOM.MIN,
+      CAMERA_DEFAULTS.ZOOM.MAX
     );
   }
 
-  private switchCamera() {
-    if (!this.experience.debug?.isActive) {
-      return;
-    }
+  public switchCamera(): void {
+    if (!this.experience.debug?.isActive) return;
 
-    if (this.instance instanceof THREE.OrthographicCamera) {
-      this.instance = this.perspectiveCamera;
-    } else {
-      this.instance = this.orthographicCamera;
-    }
+    const newType: CameraType =
+      this.instance instanceof THREE.OrthographicCamera
+        ? "perspective"
+        : "orthographic";
+
+    this.instance =
+      newType === "perspective"
+        ? this.perspectiveCamera
+        : this.orthographicCamera;
+
+    this.cameraType = newType;
   }
 
   /* ------------------------------ Tick methods ------------------------------ */
@@ -251,7 +272,13 @@ export default class Camera {
     this.instance.updateProjectionMatrix();
   }
 
-  public destroy() {
+  public destroy(): void {
+    // Remove event listeners
+    // Object.entries(this.eventHandlers).forEach(([event, handler]) => {
+    //   Emitter.off(event, handler);
+    // });
+
+    // Remove the camera from the scene
     this.scene.remove(this.instance);
   }
 }

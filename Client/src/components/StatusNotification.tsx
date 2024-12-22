@@ -38,7 +38,7 @@ export default defineComponent({
     });
 
     Emitter.on("fillInForm", () => {
-      // Covers case where resubmitting, indicate to user with 2nd animation by disabling/enabling
+      // Covers case where resubmitting, indicate to user with 2nd animation by disabling/enabling with toggleAlert
       if (
         statusAlertText.value === "Successfully uploaded" &&
         statusAlertColor.value === "green" &&
@@ -47,6 +47,7 @@ export default defineComponent({
         toggleAlert();
         return;
       }
+
       updateAlert("Successfully uploaded", "green");
     });
 

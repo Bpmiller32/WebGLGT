@@ -173,4 +173,40 @@ export default class GtUtils {
 
     return flipped;
   }
+
+  public static isEmptyObject(obj: any): boolean {
+    return (
+      typeof obj === "object" &&
+      obj !== null &&
+      Object.keys(obj).length === 0 &&
+      Object.getPrototypeOf(obj) === Object.prototype
+    );
+  }
+
+  public static isArrayOfEmptyObjects(arr: any[]): boolean {
+    return arr.length > 0 && arr.every(GtUtils.isEmptyObject);
+  }
+
+  public static isResponseEmpty(responses: any): boolean {
+    // Check if it's strictly [{}]
+    if (
+      Array.isArray(responses) &&
+      responses.length === 1 &&
+      GtUtils.isEmptyObject(responses[0])
+    ) {
+      return true;
+    }
+
+    // Check if it's an array of empty objects
+    if (Array.isArray(responses) && GtUtils.isArrayOfEmptyObjects(responses)) {
+      return true;
+    }
+
+    // Check if it's an empty array
+    if (Array.isArray(responses) && responses.length === 0) {
+      return true;
+    }
+
+    return false;
+  }
 }

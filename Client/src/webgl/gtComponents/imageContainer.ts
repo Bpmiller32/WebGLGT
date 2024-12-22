@@ -2,7 +2,6 @@
 /*   Handler for creating and joining clipping boxes, cropping to image box   */
 /* -------------------------------------------------------------------------- */
 
-import Emitter from "../utils/eventEmitter";
 import * as THREE from "three";
 import Experience from "../experience";
 import ResourceLoader from "../utils/resourceLoader";
@@ -34,7 +33,7 @@ export default class ImageContainer {
   public image: any;
 
   private rotationSpeed!: number;
-  private isRotationDisabled!: boolean;
+  public isRotationDisabled!: boolean;
   private lerpFactor!: number;
   public targetRotation!: THREE.Vector2;
 
@@ -47,25 +46,6 @@ export default class ImageContainer {
   constructor() {
     // Init
     this.initializeFields();
-
-    // Events
-    Emitter.on("stitchBoxes", () => {
-      this.isRotationDisabled = true;
-    });
-    Emitter.on("screenshotImage", () => {
-      this.screenshotImage();
-    });
-    Emitter.on("resetImage", () => {
-      this.resetImage();
-      this.isRotationDisabled = false;
-    });
-    Emitter.on("mouseMove", (event) => {
-      // TODO: debug
-      this.mouseMove(event);
-    });
-    Emitter.on("lockPointer", (event) => {
-      this.lockPointer(event);
-    });
 
     // Debug
     if (this.experience.debug?.isActive) {
@@ -107,15 +87,15 @@ export default class ImageContainer {
       this.resources.items.apiImage.image.height;
 
     const boxDepth = 1;
-    const boxHeight = 5;
-    let boxWidth = 1;
+    let boxHeight = 5;
+    let boxWidth = 5;
 
     if (textureAspectRatio >= 1) {
       // Landscape or square image, width is scaled by the aspect ratio
-      boxWidth = boxHeight * textureAspectRatio;
+      boxHeight = boxWidth / textureAspectRatio;
     } else {
       // Portrait image, width is scaled down for taller images
-      boxWidth = boxHeight / textureAspectRatio;
+      boxWidth = boxHeight * textureAspectRatio;
     }
 
     this.geometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
@@ -143,7 +123,7 @@ export default class ImageContainer {
   }
 
   /* ------------------------------ Event methods ----------------------------- */
-  private async screenshotImage() {
+  public screenshotImage() {
     // Store the render's resolution
     const originalRendererSize = new THREE.Vector2();
     this.renderer.instance.getSize(originalRendererSize);
@@ -180,7 +160,7 @@ export default class ImageContainer {
     });
 
     // Send image to Google Vision at the end of the call to avoid zoom warp out effect caused by delay from response
-    await this.sendImageToVisionAPI(base64Image);
+    this.sendImageToVisionAPI(base64Image);
   }
 
   private debugDownloadImage(dataUrl: string) {
@@ -197,6 +177,7 @@ export default class ImageContainer {
     // Not appending the element to the document, only creating, no need to clean up
     renderScreenshotLink.click();
 
+    // // Download the full image before the renderScreenshot
     // const fullImageLink = document.createElement("a");
     // fullImageLink.id = "debugDownloadSecondImage";
     // fullImageLink.href = this.image.image.src;
@@ -204,7 +185,7 @@ export default class ImageContainer {
     // fullImageLink.click();
   }
 
-  private resetImage() {
+  public resetImage() {
     // Remove the existing mesh, recreate and add the original mesh back to the scene
     GtUtils.disposeMeshHelper(this.mesh!);
     this.mesh = new THREE.Mesh(this.geometry, this.materials);
@@ -227,7 +208,7 @@ export default class ImageContainer {
     this.input.dashboardTextarea2!.value = "";
   }
 
-  private mouseMove(event: MouseEvent) {
+  public mouseMove(event: MouseEvent) {
     // Do not continue if not in image adjust mode or regardless if you in IAM are but pressing right click (move over rotate)
     if (
       !this.input.isShiftLeftPressed ||
@@ -241,7 +222,7 @@ export default class ImageContainer {
     this.targetRotation.y -= event.movementX * this.rotationSpeed;
   }
 
-  private lockPointer(event: boolean) {
+  public lockPointer(event: boolean) {
     if (event) {
       this.experience.targetElement?.requestPointerLock();
     } else {
@@ -271,13 +252,12 @@ export default class ImageContainer {
           },
         }
       );
+
+      // Check if result has responses to use, response could come back empty
       const result = await response.json();
-
-      // TODO: remove after debug
-      // console.log("vision result: ", result);
-
-      // this.input.dashboardTextarea!.value =
-      //   result.responses[0].fullTextAnnotation.text;
+      if (GtUtils.isResponseEmpty(result.responses)) {
+        throw new Error("Response from Vision is empty");
+      }
 
       this.separateResultByDelimiter(
         result.responses[0].fullTextAnnotation.text

@@ -42,8 +42,17 @@ export default class World {
     });
 
     Emitter.on("mouseDown", (event: MouseEvent) => {
-      // Update visual cue position and show
+      this.selectionGroupManager?.mouseDown(event);
       this.visualCueManager?.setPositionAndShow(event);
+    });
+
+    Emitter.on("mouseMove", (event: MouseEvent) => {
+      this.imageContainer?.mouseMove(event);
+      this.selectionGroupManager?.mouseMove(event);
+    });
+
+    Emitter.on("mouseUp", (event: MouseEvent) => {
+      this.selectionGroupManager?.mouseUp(event);
     });
 
     Emitter.on("loadedFromApi", () => {
@@ -65,6 +74,34 @@ export default class World {
 
     Emitter.on("changeSelectionGroup", (groupNumber) => {
       this.visualCueManager?.changeColor(groupNumber);
+      this.selectionGroupManager?.changeSelectionGroup(groupNumber);
+    });
+
+    Emitter.on("stitchBoxes", () => {
+      this.selectionGroupManager?.stitchBoxes();
+      this.imageContainer!.isRotationDisabled = true;
+    });
+
+    Emitter.on("resetImage", () => {
+      this.imageContainer?.resetImage();
+      this.imageContainer!.isRotationDisabled = false;
+
+      this.selectionGroupManager?.destroy();
+      this.selectionGroupManager!.activeSelectionGroup = 0;
+
+      this.visualCueManager?.changeColor(0);
+
+      this.delimiterImages.forEach((delimiterImage) => {
+        delimiterImage.resetPosition();
+      });
+    });
+
+    Emitter.on("screenshotImage", () => {
+      this.imageContainer?.screenshotImage();
+    });
+
+    Emitter.on("lockPointer", (event) => {
+      this.imageContainer?.lockPointer(event);
     });
 
     // Debug

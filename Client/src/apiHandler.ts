@@ -1,86 +1,151 @@
 import Emitter from "./webgl/utils/eventEmitter";
+import Experience from "./webgl/experience";
 import axios from "axios";
 
-export async function pingServer(apiUrl: string): Promise<boolean> {
-  try {
-    await axios.get(apiUrl + "/pingServer");
-    return true;
-  } catch {
-    console.error("Server not available");
-    Emitter.emit("appError");
-    return false;
+export default class ApiHander {
+  public static async handleNextImage(
+    apiUrl: string,
+    webglExperience: Experience
+  ) {
+    try {
+      // Retrieve projectName and directoryPath from localStorage
+      const projectName = localStorage.getItem("projectName");
+      const directoryPath = localStorage.getItem("directoryPath");
+      if (!projectName || !directoryPath) {
+        throw new Error("ProjectName or DirectoryPath missing, re-login");
+      }
+
+      // Pull next viable image from project db
+      const image = await ApiHander.next(apiUrl, projectName, directoryPath);
+      if (!image) {
+        return;
+      }
+
+      // Start image load into webgl scene as a texture
+      webglExperience.resources.loadGtImageFromApi(image.imageBlob);
+
+      // Set the image's name in the GUI
+      if (webglExperience.input.dashboardImageName) {
+        webglExperience.input.dashboardImageName.innerText = image.imageName;
+      }
+
+      // Clean up the object URL
+      URL.revokeObjectURL(image.imageBlob);
+    } catch (error) {
+      console.error("Error handling next image:", error);
+    }
   }
-}
 
-export async function getApiKey(apiUrl: string): Promise<string> {
-  try {
-    return (await axios.get(apiUrl + "/getApiKey")).data;
-  } catch {
-    console.error("Server not available");
-    Emitter.emit("appError");
-    return "";
+  public static async pingServer(apiUrl: string) {
+    try {
+      await axios.get(apiUrl + "/pingServer");
+      return true;
+    } catch {
+      console.error("Server not available");
+      Emitter.emit("appError");
+      return false;
+    }
   }
-}
 
-export async function startBrowserInstance(apiUrl: string): Promise<boolean> {
-  try {
-    await axios.get(apiUrl + "/startBrowser");
-    return true;
-  } catch {
-    console.error("Server browser instance could not be initialized");
-    Emitter.emit("appError");
-    return false;
+  public static async getApiKey(apiUrl: string) {
+    try {
+      // Retrieve the token from localStorage
+      const token = localStorage.getItem("jwtToken");
+      if (!token) {
+        throw new Error("No token found. Please log in.");
+      }
+
+      const response = await axios.get(apiUrl + "/getApiKey", {
+        headers: {
+          Authorization: `Bearer ${token}`, // Include the token in the Authorization header
+          "Content-Type": "application/json", // Ensure content type is JSON
+        },
+      });
+
+      return response.data;
+    } catch {
+      console.error("Server not available");
+      Emitter.emit("appError");
+      return "";
+    }
   }
-}
 
-export async function downloadImage(
-  apiUrl: string
-): Promise<{ imageName: string; imageBlob: string } | undefined> {
-  try {
-    const response = await axios.get(apiUrl + "/downloadImage", {
-      responseType: "blob",
-    });
+  public static async login(
+    apiUrl: string,
+    username: string,
+    password: string
+  ) {
+    try {
+      const response = await axios.post(apiUrl + "/login", {
+        username: username,
+        password: password,
+      });
 
-    const imageName = response.headers["x-gt-image-name"];
+      // Extract the token from the response
+      const { token } = response.data;
 
-    return {
-      imageName: imageName,
-      imageBlob: URL.createObjectURL(response.data),
-    };
-  } catch {
-    console.error("Could not be download image from server");
-    Emitter.emit("appError");
+      // Store the token securely in localStorage
+      localStorage.setItem("jwtToken", token);
+
+      // TODO: move this to another function once project selection page/dropdown is implemented
+      localStorage.setItem("projectName", "testTjx2");
+      localStorage.setItem("directoryPath", "testImages/tjx");
+
+      return true;
+    } catch {
+      console.error("Login failed: incorrect username or password");
+      Emitter.emit("appError");
+      return false;
+    }
   }
-}
 
-export async function fillInForm(
-  apiUrl: string,
-  data: {
-    address: string;
-    isMpImage: boolean;
-    isHwImage: boolean;
-    isBadImage: boolean;
-  }
-) {
-  try {
-    await axios.post(apiUrl + "/fillInForm", data);
-  } catch {
-    console.error("Could not fill in form data on the gt server");
-    Emitter.emit("appError");
-  }
-}
+  public static async next(
+    apiUrl: string,
+    projectName: string,
+    directoryPath: string
+  ) {
+    try {
+      // Retrieve the token from localStorage
+      const token = localStorage.getItem("jwtToken");
+      if (!token) {
+        throw new Error("No token found. Please log in.");
+      }
 
-export async function gotoNextImage(
-  apiUrl: string
-): Promise<{ imageName: string; imageBlob: string } | undefined> {
-  try {
-    // Navigate to new image
-    await axios.get(apiUrl + "/gotoNextImage");
+      // Make a POST request to the protected endpoint
+      const response = await axios.post(
+        apiUrl + "/next", // Endpoint
+        { projectName, directoryPath }, // Request body
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Include the token in the Authorization header
+            "Content-Type": "application/json", // Ensure content type is JSON
+          },
+        }
+      );
 
-    // Download and return image on the current page
-    return await downloadImage(apiUrl);
-  } catch {
-    console.error("Could not navigate to or download the next image");
-    Emitter.emit("appError");
+      // Extract the response data, imageBlob is Base64 string since the content type on the response was json
+      const { imageName, imageBlob } = response.data;
+
+      // Decode Base64 to binary
+      const binary = atob(imageBlob);
+      // Convert binary to array for Blob constructor
+      const array = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        array[i] = binary.charCodeAt(i);
+      }
+      // Create an actual Blob object
+      const blob = new Blob([array], { type: "image/png" });
+
+      // Create an object URL from the Blob
+      const imageBlobUrl = URL.createObjectURL(blob);
+
+      return {
+        imageName: imageName,
+        imageBlob: imageBlobUrl,
+      };
+    } catch {
+      console.error("Could not navigate to or download the next image");
+      Emitter.emit("appError");
+    }
   }
 }
