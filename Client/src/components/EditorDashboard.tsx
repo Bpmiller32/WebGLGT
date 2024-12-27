@@ -21,6 +21,7 @@ export default defineComponent({
     /* ------------------------ Component state and setup ----------------------- */
     // Template refs
     const imageNameRef = ref();
+
     const GroupTextArea0Value = ref();
     const GroupTextArea0Active = ref();
 
@@ -99,17 +100,43 @@ export default defineComponent({
           props.webglExperience.world.imageContainer?.stopwatch.elapsedTime ||
           0,
         status: "completed",
-        groupText0: GroupTextArea0Value.value,
-        groupText1: GroupTextArea1Value.value,
-        groupText2: GroupTextArea2Value.value,
+        groupText0: GroupTextArea0Value.value || "",
+        groupText1: GroupTextArea1Value.value || "",
+        groupText2: GroupTextArea2Value.value || "",
 
-        // TODO: Get coordinates from the experience, push into array in Firebase
-        groupCoordinates0: "",
-        groupCoordinates1: "",
-        groupCoordinates2: "",
+        // Convert coordinates to plain objects with numeric values
+        groupCoordinates0:
+          props.webglExperience.world.selectionGroupManager?.selectionGroupPixelCoordinates0?.map(
+            (coord) => ({
+              x: Number(coord.x.toFixed(2)),
+              y: Number(coord.y.toFixed(2)),
+            })
+          ) || [],
+        groupCoordinates1:
+          props.webglExperience.world.selectionGroupManager?.selectionGroupPixelCoordinates1?.map(
+            (coord) => ({
+              x: Number(coord.x.toFixed(2)),
+              y: Number(coord.y.toFixed(2)),
+            })
+          ) || [],
+        groupCoordinates2:
+          props.webglExperience.world.selectionGroupManager?.selectionGroupPixelCoordinates2?.map(
+            (coord) => ({
+              x: Number(coord.x.toFixed(2)),
+              y: Number(coord.y.toFixed(2)),
+            })
+          ) || [],
       };
 
       try {
+        const requestBody = {
+          projectName: localStorage.getItem("projectName") || "testTjx2",
+          updateData,
+        };
+
+        // // Debug
+        // console.log("Full request body:", JSON.stringify(requestBody, null, 2));
+
         // Send update request to server
         const response = await fetch(`${props.apiUrl}/updateImage`, {
           method: "POST",
@@ -117,16 +144,7 @@ export default defineComponent({
             "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
           },
-          body: JSON.stringify({
-            projectName: localStorage.getItem("projectName") || "testTjx2",
-            updateData: {
-              ...updateData,
-              // Let JSON.stringify handle the newline escaping naturally
-              groupText0: updateData.groupText0 || "",
-              groupText1: updateData.groupText1 || "",
-              groupText2: updateData.groupText2 || ""
-            }
-          })
+          body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {

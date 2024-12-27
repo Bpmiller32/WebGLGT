@@ -35,6 +35,10 @@ export default class SelectionGroupManager {
   public combinedBoundingBox!: THREE.Box3;
   public areSelectionGroupsJoined!: boolean;
 
+  public selectionGroupPixelCoordinates0!: THREE.Vector2[];
+  public selectionGroupPixelCoordinates1!: THREE.Vector2[];
+  public selectionGroupPixelCoordinates2!: THREE.Vector2[];
+
   // Configuration
   private readonly defaultOpacity: number = 0.35;
   private readonly selectionZPosition: number = 5;
@@ -76,6 +80,10 @@ export default class SelectionGroupManager {
     this.boxSizeThreshold = 0.025;
     this.combinedBoundingBox = new THREE.Box3();
     this.areSelectionGroupsJoined = false;
+
+    this.selectionGroupPixelCoordinates0 = [];
+    this.selectionGroupPixelCoordinates1 = [];
+    this.selectionGroupPixelCoordinates2 = [];
   }
 
   /* ------------------------------ Event methods ----------------------------- */
@@ -474,6 +482,13 @@ export default class SelectionGroupManager {
       throw new Error("No imageContainer mesh available for cropping.");
     }
 
+    // Determine which selection group these meshes belong to before any modifications
+    const groupIndex = this.selectionGroup0.includes(selectionMeshes[0])
+      ? 0
+      : this.selectionGroup1.includes(selectionMeshes[0])
+      ? 1
+      : 2;
+
     // Combine all selections into one mesh
     let combinedMesh = selectionMeshes[0];
     for (let i = 1; i < selectionMeshes.length; i++) {
@@ -520,12 +535,29 @@ export default class SelectionGroupManager {
       croppedMesh.position.sub(center);
 
       // Extracts UV coordinates from the bounding box of a given mesh, converts them to pixel coordinates, then flips and sorts these pixel coordinates based on the associated image.
-      const test = GtUtils.getPixelCoordinatesFromSelectionMesh(
+      const pixelCoordinates = GtUtils.getPixelCoordinatesFromSelectionMesh(
         croppedMesh,
         this.world.imageContainer
       );
-      // TODO: assign somewhere for backend
-      console.log("pixelCoordinates for firestore: ", test);
+
+      // Store coordinates in the appropriate array based on the group index we determined earlier
+      switch (groupIndex) {
+        case 0:
+          this.selectionGroupPixelCoordinates0 = pixelCoordinates;
+          break;
+        case 1:
+          this.selectionGroupPixelCoordinates1 = pixelCoordinates;
+          break;
+        case 2:
+          this.selectionGroupPixelCoordinates2 = pixelCoordinates;
+          break;
+      }
+
+      console.log(
+        "Stored pixel coordinates for selection group:",
+        groupIndex,
+        pixelCoordinates
+      );
     }
 
     return croppedMesh;
@@ -597,6 +629,16 @@ export default class SelectionGroupManager {
         selectionGroup.length = 0;
       }
     );
+
+    // Remove all coordinates
+    [
+      this.selectionGroupPixelCoordinates0,
+      this.selectionGroupPixelCoordinates1,
+      this.selectionGroupPixelCoordinates2,
+    ].forEach((selectionGroup) => {
+      // Clear the group
+      selectionGroup.length = 0;
+    });
 
     // Reset join state
     this.areSelectionGroupsJoined = false;
