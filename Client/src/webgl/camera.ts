@@ -82,6 +82,22 @@ export default class Camera {
       mouseWheel: this.mouseWheel.bind(this),
       switchCamera: this.switchCamera.bind(this),
     };
+    // Events
+    Emitter.on("mouseDown", (event) => {
+      this.mouseDown(event);
+    });
+    Emitter.on("mouseMove", (event) => {
+      this.mouseMove(event);
+    });
+    Emitter.on("mouseUp", (event) => {
+      this.mouseUp(event);
+    });
+    Emitter.on("mouseWheel", (event) => {
+      this.mouseWheel(event);
+    });
+    Emitter.on("switchCamera", () => {
+      this.switchCamera();
+    });
 
     this.initializeCameras();
   }

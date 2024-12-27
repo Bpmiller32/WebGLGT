@@ -305,6 +305,55 @@ app.post(
   })
 );
 
+/* --------------------------- Update image data --------------------------- */
+app.post(
+  "/updateImage",
+  requireAuth,
+  Utils.asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    // Grab username from request modified by requireAuth middleware
+    const username = req.user?.username;
+    if (!username) {
+      return res.status(401).send("User not authenticated");
+    }
+
+    // Grab project name and update data from request
+    const { projectName, updateData } = req.body;
+    if (!projectName || typeof projectName !== "string") {
+      return res.status(400).json({ error: "Invalid or missing projectName" });
+    }
+    if (!updateData || typeof updateData !== "object") {
+      return res.status(400).json({ error: "Invalid or missing updateData" });
+    }
+
+    // Get the user's current entry ID
+    const userDoc = await db.collection("users").doc(username).get();
+    const userData = userDoc.data();
+    const currentEntryId = userData?.currentEntryId;
+
+    if (!currentEntryId) {
+      return res.status(404).json({ error: "No current image selected" });
+    }
+
+    // Fetch the image document
+    const imageRef = db.collection(projectName).doc(currentEntryId);
+    const imageDoc = await imageRef.get();
+
+    if (!imageDoc.exists) {
+      return res.status(404).json({ error: "Image document not found" });
+    }
+
+    updateData.finishedAt = new Date();
+    console.log("updateData: ", updateData);
+
+    // Update the document with the provided data
+    await imageRef.update(updateData);
+
+    return res
+      .status(200)
+      .json({ message: "Image document updated successfully" });
+  })
+);
+
 /* -------------------------------------------------------------------------- */
 /*                               Debug requests                               */
 /* -------------------------------------------------------------------------- */

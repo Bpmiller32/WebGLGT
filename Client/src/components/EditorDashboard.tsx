@@ -21,8 +21,13 @@ export default defineComponent({
     /* ------------------------ Component state and setup ----------------------- */
     // Template refs
     const imageNameRef = ref();
+    const GroupTextArea0Value = ref();
     const GroupTextArea0Active = ref();
+
+    const GroupTextArea1Value = ref();
     const GroupTextArea1Active = ref();
+
+    const GroupTextArea2Value = ref();
     const GroupTextArea2Active = ref();
 
     // Status
@@ -36,7 +41,7 @@ export default defineComponent({
 
     /* ---------------------------- Lifecycle Events ---------------------------- */
     Emitter.on("fillInForm", async () => {
-      // await submitToDb();
+      await submitToDb();
     });
     Emitter.on("gotoNextImage", async () => {
       await loadNextImage();
@@ -71,116 +76,69 @@ export default defineComponent({
       isMpImage.value = false;
       isBadImage.value = true;
 
-      // await submitToDb();
-      await loadNextImage();
+      await submitToDb();
     });
     Emitter.on("loadedFromApi", () => {
       imageDownloadCount.value++;
     });
 
     /* ---------------------------- Helper functions ---------------------------- */
-    // const submitToDb = async () => {
-    //   // Define data request body
-    //   const data = {
-    //     address: GroupTextArea0Active.value.value,
+    const submitToDb = async () => {
+      // Determine image type
+      let imageType = "";
+      if (isMpImage.value) imageType = "mp";
+      if (isHwImage.value) imageType = "hw";
+      if (isBadImage.value) imageType = "bad";
 
-    //     isMpImage: isMpImage.value,
-    //     isHwImage: false,
-    //     isBadImage: isBadImage.value,
-    //   };
+      // Prepare update data
+      const updateData = {
+        imageType: imageType,
+        rotation:
+          props.webglExperience.world.imageContainer?.imageRotation || 0,
+        timeOnImage:
+          props.webglExperience.world.imageContainer?.stopwatch.elapsedTime ||
+          0,
+        status: "completed",
+        groupText0: GroupTextArea0Value.value,
+        groupText1: GroupTextArea1Value.value,
+        groupText2: GroupTextArea2Value.value,
 
-    //   // Change the data based on gui, get the textarea content and split into lines
-    //   const lines = GroupTextArea0Active.value.value.split("\n");
+        // TODO: Get coordinates from the experience, push into array in Firebase
+        groupCoordinates0: "",
+        groupCoordinates1: "",
+        groupCoordinates2: "",
+      };
 
-    //   // Prepend each line with the corresponding prefix
-    //   const prefixes = ["PO:", "VS:", "TS:"];
+      try {
+        // Send update request to server
+        const response = await fetch(`${props.apiUrl}/updateImage`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
+          },
+          body: JSON.stringify({
+            projectName: localStorage.getItem("projectName") || "testTjx2",
+            updateData: {
+              ...updateData,
+              // Let JSON.stringify handle the newline escaping naturally
+              groupText0: updateData.groupText0 || "",
+              groupText1: updateData.groupText1 || "",
+              groupText2: updateData.groupText2 || ""
+            }
+          })
+        });
 
-    //   // Hacky vendor only
-    //   if (isVendorOnly.value) {
-    //     data.address = "VS:" + GroupTextArea0Active.value.value;
-    //   } else {
-    //     const modifiedLines = lines.map(
-    //       (line: string, index: number) => `${prefixes[index] || ""}${line}`
-    //     );
+        if (!response.ok) {
+          throw new Error(`Failed to update image: ${response.statusText}`);
+        }
 
-    //     data.address = modifiedLines.join("\n");
-    //   }
-
-    //   // Don't prepend if the textArea is blank
-    //   if (lines.length === 1 && lines[0] === "") {
-    //     data.address = "";
-    //   }
-
-    //   // Send POST request to server
-    //   await fillInForm(props.apiUrl, data);
-
-    //   // Gate to prevent multiple firebase calls on same session/image
-    //   if (haveUpdatedFirebaseOnce === true) {
-    //     return;
-    //   }
-
-    //   // Update firebase stats
-    //   try {
-    //     // Get a reference to the document
-    //     const docRef = doc(db, "globalStats", "tjxStatistics");
-
-    //     // Fetch the document
-    //     const docSnap = await getDoc(docRef);
-
-    //     // Update specific fields in the document
-    //     const document = docSnap.data()!;
-    //     document.imagesProcessed++;
-    //     if (isMpImage.value) {
-    //       document.numberOfMpImages++;
-    //     }
-    //     if (isBadImage.value) {
-    //       document.numberOfBadImages++;
-    //     }
-
-    //     // Update the document in firestore
-    //     await updateDoc(docRef, {
-    //       imagesProcessed: document.imagesProcessed,
-    //       numberOfMpImages: document.numberOfMpImages,
-    //       numberOfHwImages: document.numberOfHwImages,
-    //       numberOfBadImages: document.numberOfBadImages,
-    //     });
-
-    //     // Set firebase gate to stop multiple uploads
-    //     haveUpdatedFirebaseOnce = true;
-    //   } catch {
-    //     console.error("Error getting stats document from firestore");
-    //   }
-
-    //   // Add image data to firebase
-    //   try {
-    //     // Reference to the collection
-    //     const collectionRef = collection(db, "tjxImageData");
-
-    //     // Set image type as a string
-    //     let imageType = "";
-    //     if (isMpImage.value) {
-    //       imageType = "mp";
-    //     }
-    //     if (isBadImage.value) {
-    //       imageType = "bad";
-    //     }
-
-    //     // Data to be added
-    //     const newData = {
-    //       imageName: imageNameRef.value.innerText,
-    //       imageType: imageType,
-    //       timeOnImage: experience.world.imageContainer?.stopwatch.elapsedTime,
-    //       rotation: experience.world.imageContainer?.imageRotation,
-    //       addressSubmitted: data.address,
-    //       dateSubmitted: new Date(),
-    //     };
-
-    //     // Add a new document with an auto-generated ID
-    //     await addDoc(collectionRef, newData);
-    //   } catch {
-    //     console.error("Error adding image data document to firestore");
-    //   }
-    // };
+        // Load next image after successful update
+        // await loadNextImage();
+      } catch (error) {
+        console.error("Error updating image:", error);
+      }
+    };
 
     const loadNextImage = async () => {
       // Pull next viable image from backend
@@ -249,16 +207,25 @@ export default defineComponent({
             color="green"
             id="dashboardTextarea0"
             isActive={GroupTextArea0Active.value}
+            setTextArea={(newValue: string) =>
+              (GroupTextArea0Value.value = newValue)
+            }
           />
           <GroupTextArea
             color="red"
             id="dashboardTextarea1"
             isActive={GroupTextArea1Active.value}
+            setTextArea={(newValue: string) =>
+              (GroupTextArea1Value.value = newValue)
+            }
           />
           <GroupTextArea
             color="blue"
             id="dashboardTextarea2"
             isActive={GroupTextArea2Active.value}
+            setTextArea={(newValue: string) =>
+              (GroupTextArea2Value.value = newValue)
+            }
           />
         </section>
 

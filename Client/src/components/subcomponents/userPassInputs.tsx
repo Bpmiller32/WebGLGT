@@ -1,13 +1,13 @@
-import { defineComponent, ref } from "vue";
+import { defineComponent, ref, PropType } from "vue";
 
 export default defineComponent({
   props: {
     setUsername: {
-      type: Function,
+      type: Function as PropType<(newUsername: string) => string>,
       required: true,
     },
     setPassword: {
-      type: Function,
+      type: Function as PropType<(newPassword: string) => string>,
       required: true,
     },
   },
