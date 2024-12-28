@@ -70,8 +70,6 @@ export default class ImageContainer {
     this.rotationSpeed = 0.005;
     this.isRotationDisabled = false;
     this.lerpFactor = 1;
-    // TODO: fix the rotation lerp on selectionGroupManager to sync with this
-    // this.lerpFactor = 0.1;
     this.targetRotation = new THREE.Vector2();
 
     // Backend fields
@@ -170,19 +168,31 @@ export default class ImageContainer {
 
     // Debug, Automatically download the screenshot as a PNG file
     const renderScreenshotLink = document.createElement("a");
-    renderScreenshotLink.id = "debugDownloadImage";
+    renderScreenshotLink.id = "debugDownloadImageScreenshot";
     renderScreenshotLink.href = dataUrl;
     // Specify the file name
     renderScreenshotLink.download = "renderScreenshot.png";
     // Not appending the element to the document, only creating, no need to clean up
     renderScreenshotLink.click();
 
-    // // Download the full image before the renderScreenshot
-    // const fullImageLink = document.createElement("a");
-    // fullImageLink.id = "debugDownloadSecondImage";
-    // fullImageLink.href = this.image.image.src;
-    // fullImageLink.download = "originalImage.png";
-    // fullImageLink.click();
+    // Download the full image before the renderScreenshot
+    if (this.resources.currentImageBlob) {
+      // Clean up any previous blob URL
+      if (this.resources.currentImageUrl) {
+        URL.revokeObjectURL(this.resources.currentImageUrl);
+      }
+
+      // Create new blob URL for download
+      const url = URL.createObjectURL(this.resources.currentImageBlob);
+      const fullImageLink = document.createElement("a");
+      fullImageLink.id = "debugDownloadImageOriginal";
+      fullImageLink.href = url;
+      fullImageLink.download = "originalImage.jpg";
+      fullImageLink.click();
+
+      // Clean up after download
+      URL.revokeObjectURL(url);
+    }
   }
 
   public resetImage() {
@@ -375,19 +385,18 @@ export default class ImageContainer {
     this.imageRotation = this.convertRotation(this.mesh.rotation.z);
   }
 
-  // TODO: work on removing
   public worldToUV(
     worldCoord: THREE.Vector3,
     mesh: THREE.Mesh,
     boundingBox: THREE.Box3
   ) {
-    // Step 1: Transform world coordinates to local coordinates
+    // Transform world coordinates to local coordinates
     const worldToLocalMatrix = new THREE.Matrix4()
       .copy(mesh.matrixWorld)
       .invert();
     const localCoord = worldCoord.clone().applyMatrix4(worldToLocalMatrix);
 
-    // Step 2: Normalize the local coordinates to UV space (0 to 1)
+    // Normalize the local coordinates to UV space (0 to 1)
     const u =
       (localCoord.x - boundingBox.min.x) /
       (boundingBox.max.x - boundingBox.min.x);

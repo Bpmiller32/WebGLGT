@@ -61,7 +61,7 @@ app.post(
     }
 
     // Update the lastLoggedInTime
-    await userDoc.ref.update({ lastLoggedInTime: new Date().toISOString() });
+    await userDoc.ref.update({ lastLoggedInTime: new Date() });
 
     // Create a JWT
     const token = jwt.sign({ username }, envVariables.JWT_KEY, {
@@ -96,7 +96,7 @@ app.post(
 
     // Update the lastAccessedTime field for the user
     const userRef = db.collection("users").doc(username);
-    await userRef.update({ lastAccessedTime: new Date().toISOString() });
+    await userRef.update({ lastAccessedTime: new Date() });
 
     // Use a Firestore transaction to atomically query
     const dbResult = await db.runTransaction(
@@ -242,7 +242,7 @@ app.post(
     // Update the lastAccessedTime field for the user
     const userRef = db.collection("users").doc(username);
     await userRef.update({
-      lastAccessedTime: new Date().toISOString(),
+      lastAccessedTime: new Date(),
     });
 
     // Use a Firestore transaction to atomically query

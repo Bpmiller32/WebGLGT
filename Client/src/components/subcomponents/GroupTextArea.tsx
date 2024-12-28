@@ -24,6 +24,7 @@ export default defineComponent({
     // Ugly method to intercept programmatic changes to textArea. Only way I could consistantly get it working since textArea.value.value is changed outside of Vue reactivity system
     const value = ref("");
     let isUpdating = false;
+    let originalDescriptor: PropertyDescriptor | undefined;
 
     // Setup value property interceptor on mount
     onMounted(() => {
@@ -36,21 +37,21 @@ export default defineComponent({
       value.value = element.value;
 
       // Intercept value property
-      const descriptor = Object.getOwnPropertyDescriptor(
+      originalDescriptor = Object.getOwnPropertyDescriptor(
         HTMLTextAreaElement.prototype,
         "value"
       );
 
       Object.defineProperty(element, "value", {
-        get: () => descriptor?.get?.call(element),
+        get: () => originalDescriptor?.get?.call(element),
         set: (newValue: string) => {
           if (isUpdating) return;
           isUpdating = true;
 
-          descriptor?.set?.call(element, newValue);
+          originalDescriptor?.set?.call(element, newValue);
 
           if (value.value !== newValue) {
-            // Normalize newlines to \n and preserve them. Fixes bug/issue where Firestore was not storing newlines in the fields
+            // Normalize newlines to \n
             const normalizedValue = newValue
               .replace(/\r\n/g, "\n")
               .replace(/\r/g, "\n");
@@ -64,13 +65,14 @@ export default defineComponent({
         },
         configurable: true,
       });
+    });
 
-      // Cleanup on unmount
-      onUnmounted(() => {
-        if (descriptor) {
-          Object.defineProperty(element, "value", descriptor);
-        }
-      });
+    // Cleanup, restore the original value descriptor on unmount
+    onUnmounted(() => {
+      const element = document.getElementById(props.id) as HTMLTextAreaElement;
+      if (element && originalDescriptor) {
+        Object.defineProperty(element, "value", originalDescriptor);
+      }
     });
 
     return () => (

@@ -32,7 +32,7 @@ export default defineComponent({
     const GroupTextArea2Active = ref();
 
     // Status
-    const imageDownloadCount = ref(0);
+    const gtSavedCount = ref(0);
 
     // MailType tags
     const isMpImage = ref(true); // Make this a default value
@@ -43,9 +43,17 @@ export default defineComponent({
     /* ---------------------------- Lifecycle Events ---------------------------- */
     Emitter.on("fillInForm", async () => {
       await submitToDb();
+      gtSavedCount.value++;
     });
     Emitter.on("gotoNextImage", async () => {
       await loadNextImage();
+
+      GroupTextArea0Active.value = false;
+      GroupTextArea1Active.value = false;
+      GroupTextArea2Active.value = false;
+    });
+    Emitter.on("gotoPrevImage", async () => {
+      await loadPrevImage();
 
       GroupTextArea0Active.value = false;
       GroupTextArea1Active.value = false;
@@ -75,12 +83,11 @@ export default defineComponent({
     });
     Emitter.on("badImage", async () => {
       isMpImage.value = false;
+      isHwImage.value = false;
       isBadImage.value = true;
 
       await submitToDb();
-    });
-    Emitter.on("loadedFromApi", () => {
-      imageDownloadCount.value++;
+      gtSavedCount.value++;
     });
 
     /* ---------------------------- Helper functions ---------------------------- */
@@ -163,7 +170,28 @@ export default defineComponent({
       await ApiHander.handleNextImage(props.apiUrl, props.webglExperience);
 
       // Clear all fields for new image, except isMpImage since that should be the default
-      GroupTextArea0Active.value.value = "";
+      GroupTextArea0Value.value = "";
+      GroupTextArea0Active.value = false;
+      GroupTextArea1Value.value = "";
+      GroupTextArea1Active.value = false;
+      GroupTextArea2Value.value = "";
+      GroupTextArea2Active.value = false;
+      isMpImage.value = true;
+      isBadImage.value = false;
+      isVendorOnly.value = false;
+    };
+
+    const loadPrevImage = async () => {
+      // Pull previous image from backend, user's history
+      await ApiHander.handlePrevImage(props.apiUrl, props.webglExperience);
+
+      // Clear all fields for new image, except isMpImage since that should be the default
+      GroupTextArea0Value.value = "";
+      GroupTextArea0Active.value = false;
+      GroupTextArea1Value.value = "";
+      GroupTextArea1Active.value = false;
+      GroupTextArea2Value.value = "";
+      GroupTextArea2Active.value = false;
       isMpImage.value = true;
       isBadImage.value = false;
       isVendorOnly.value = false;
@@ -187,10 +215,10 @@ export default defineComponent({
             </div>
             <div class="mt-1 flex items-center w-full">
               <p class="mr-1 font-medium text-gray-100 text-xs text-ellipsis">
-                Download count:
+                GT count:
               </p>
               <p class="mr-4 self-end overflow-hidden font-medium text-gray-100 text-xs text-ellipsis">
-                {imageDownloadCount.value}
+                {gtSavedCount.value}
               </p>
             </div>
           </div>

@@ -54,6 +54,9 @@ export default defineComponent({
     Emitter.on("gotoNextImage", () => {
       updateAlert("Loading next image....", "yellow");
     });
+    Emitter.on("gotoPrevImage", () => {
+      updateAlert("Loading previous image....", "yellow");
+    });
 
     Emitter.on("loadedFromApi", () => {
       isAlertEnabled.value = false;
@@ -61,6 +64,9 @@ export default defineComponent({
 
     Emitter.on("appError", () => {
       updateAlert("Error", "red");
+
+      // Fixes bug where loading updateAlert wasn't "finished"
+      toggleAlert();
     });
 
     /* ---------------------------- Helper Methods ---------------------------- */

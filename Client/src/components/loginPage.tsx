@@ -28,7 +28,6 @@ export default defineComponent({
     const isDebugEnabled = ref(false);
     const didLoginFail = ref(false);
 
-    /* ----------------------------- Lifecycle Events ---------------------------- */
     onMounted(async () => {
       try {
         isServerOnline.value = await ApiHandler.pingServer(props.apiUrl);
@@ -47,8 +46,8 @@ export default defineComponent({
         throw new Error("No token found. Please log in.");
       }
 
-      Emitter.emit("startApp");
-      return;
+      // Emitter.emit("startApp");
+      // return;
 
       const isAuthenticated = await ApiHandler.login(
         props.apiUrl,

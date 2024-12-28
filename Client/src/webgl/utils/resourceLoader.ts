@@ -8,6 +8,8 @@ import * as THREE from "three";
 export default class ResourceLoader {
   public items: { [key: string]: any };
   public apiKey: string;
+  public currentImageUrl?: string;
+  public currentImageBlob?: Blob;
 
   private textureLoader?: THREE.TextureLoader;
 
@@ -24,7 +26,12 @@ export default class ResourceLoader {
     });
   }
 
-  public loadGtImageFromApi(imageUrl?: string) {
+  public loadGtImageFromApi(imageUrl?: string, blob?: Blob) {
+    // Store both URL and blob for later use
+    this.currentImageUrl = imageUrl;
+    this.currentImageBlob = blob;
+
+    // Load the texture
     this.textureLoader?.load(imageUrl!, (image) => {
       this.items["apiImage"] = image;
       Emitter.emit("loadedFromApi");

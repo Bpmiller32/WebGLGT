@@ -109,7 +109,7 @@ export default class Camera {
     if (this.experience.debug?.isActive) {
       this.debug = this.experience.debug;
       this.setPerspectiveInstance();
-      debugCamera(this);
+      // debugCamera(this);
     }
 
     this.instance = this.orthographicCamera;
