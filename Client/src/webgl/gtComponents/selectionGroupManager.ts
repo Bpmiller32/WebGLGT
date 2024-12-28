@@ -42,6 +42,8 @@ export default class SelectionGroupManager {
   // Configuration
   private readonly defaultOpacity: number = 0.35;
   private readonly selectionZPosition: number = 5;
+  // Padding between delimiter and cropped meshes, helps/fixes issue where text is skewed and Google Vision also skews delimiter text - breaking group delimiting
+  private readonly delimiterPadding: number = 0.1;
   private selectionGroupsColorMap: { [key: number]: number } = {
     0: 0x00ff00,
     1: 0xff0000,
@@ -240,15 +242,18 @@ export default class SelectionGroupManager {
           // Calculate the delimiter image height
           const delimiterHeight = this.getMeshHeight(delimiterImage.mesh);
 
-          // Position the delimiterImage mesh
+          // Position the delimiterImage mesh with padding
           delimiterImage.mesh.position.y =
-            totalHeightToAdd + delimiterHeight / 2;
+            totalHeightToAdd + this.delimiterPadding + delimiterHeight / 2;
           delimiterImage.mesh.position.z = 0;
+
+          // Update total height including padding
+          totalHeightToAdd += this.delimiterPadding * 2; // Add padding before and after delimiter
 
           // Make mesh invisible until screenshot
           delimiterImage.mesh.visible = false;
 
-          // Update total height for the next mesh
+          // Update total height for the delimiter
           totalHeightToAdd += delimiterHeight;
         }
       }
@@ -552,12 +557,6 @@ export default class SelectionGroupManager {
           this.selectionGroupPixelCoordinates2 = pixelCoordinates;
           break;
       }
-
-      console.log(
-        "Stored pixel coordinates for selection group:",
-        groupIndex,
-        pixelCoordinates
-      );
     }
 
     return croppedMesh;

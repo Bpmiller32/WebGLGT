@@ -21,24 +21,22 @@ export default defineComponent({
     /* ------------------------ Component state and setup ----------------------- */
     // Template refs
     const imageNameRef = ref();
-
-    const GroupTextArea0Value = ref();
-    const GroupTextArea0Active = ref();
-
-    const GroupTextArea1Value = ref();
-    const GroupTextArea1Active = ref();
-
-    const GroupTextArea2Value = ref();
-    const GroupTextArea2Active = ref();
-
-    // Status
     const gtSavedCount = ref(0);
 
+    // Group Text Areas
+    const groupTextAreas = ref([
+      { value: "", isActive: false },
+      { value: "", isActive: false },
+      { value: "", isActive: false },
+    ]);
+
     // MailType tags
-    const isMpImage = ref(true); // Make this a default value
-    const isHwImage = ref(false);
-    const isBadImage = ref(false);
-    const isVendorOnly = ref(false);
+    const mailTypes = ref({
+      isMpImage: true, // Make this a default value
+      isHwImage: false,
+      isBadImage: false,
+      isVendorOnly: false,
+    });
 
     /* ---------------------------- Lifecycle Events ---------------------------- */
     Emitter.on("fillInForm", async () => {
@@ -47,56 +45,53 @@ export default defineComponent({
     });
     Emitter.on("gotoNextImage", async () => {
       await loadNextImage();
-
-      GroupTextArea0Active.value = false;
-      GroupTextArea1Active.value = false;
-      GroupTextArea2Active.value = false;
+      resetGroupStates();
     });
     Emitter.on("gotoPrevImage", async () => {
       await loadPrevImage();
-
-      GroupTextArea0Active.value = false;
-      GroupTextArea1Active.value = false;
-      GroupTextArea2Active.value = false;
+      resetGroupStates();
     });
     Emitter.on("changeSelectionGroup", (groupNumber) => {
-      if (groupNumber == 0) {
-        GroupTextArea0Active.value = true;
-        GroupTextArea1Active.value = false;
-        GroupTextArea2Active.value = false;
-      }
-      if (groupNumber == 1) {
-        GroupTextArea0Active.value = false;
-        GroupTextArea1Active.value = true;
-        GroupTextArea2Active.value = false;
-      }
-      if (groupNumber == 2) {
-        GroupTextArea0Active.value = false;
-        GroupTextArea1Active.value = false;
-        GroupTextArea2Active.value = true;
-      }
+      activateGroup(groupNumber);
     });
     Emitter.on("resetImage", () => {
-      GroupTextArea0Active.value = false;
-      GroupTextArea1Active.value = false;
-      GroupTextArea2Active.value = false;
+      resetGroupStates();
     });
     Emitter.on("badImage", async () => {
-      isMpImage.value = false;
-      isHwImage.value = false;
-      isBadImage.value = true;
+      Object.assign(mailTypes.value, {
+        isMpImage: false,
+        isHwImage: false,
+        isBadImage: true,
+        isVendorOnly: false,
+      });
 
       await submitToDb();
       gtSavedCount.value++;
     });
 
     /* ---------------------------- Helper functions ---------------------------- */
+    const resetGroupStates = () => {
+      groupTextAreas.value.forEach((group) => (group.isActive = false));
+    };
+
+    const activateGroup = (groupNumber: number) => {
+      groupTextAreas.value.forEach((group, index) => {
+        if (index === groupNumber) {
+          // Activate the specified group
+          group.isActive = true;
+        } else {
+          // Deactivate all other groups
+          group.isActive = false;
+        }
+      });
+    };
+
     const submitToDb = async () => {
       // Determine image type
       let imageType = "";
-      if (isMpImage.value) imageType = "mp";
-      if (isHwImage.value) imageType = "hw";
-      if (isBadImage.value) imageType = "bad";
+      if (mailTypes.value.isMpImage) imageType = "mp";
+      if (mailTypes.value.isHwImage) imageType = "hw";
+      if (mailTypes.value.isBadImage) imageType = "bad";
 
       // Prepare update data
       const updateData = {
@@ -107,9 +102,9 @@ export default defineComponent({
           props.webglExperience.world.imageContainer?.stopwatch.elapsedTime ||
           0,
         status: "completed",
-        groupText0: GroupTextArea0Value.value || "",
-        groupText1: GroupTextArea1Value.value || "",
-        groupText2: GroupTextArea2Value.value || "",
+        groupText0: groupTextAreas.value[0].value || "",
+        groupText1: groupTextAreas.value[1].value || "",
+        groupText2: groupTextAreas.value[2].value || "",
 
         // Convert coordinates to plain objects with numeric values
         groupCoordinates0:
@@ -157,44 +152,34 @@ export default defineComponent({
         if (!response.ok) {
           throw new Error(`Failed to update image: ${response.statusText}`);
         }
-
-        // Load next image after successful update
-        // await loadNextImage();
       } catch (error) {
         console.error("Error updating image:", error);
+        Emitter.emit("appError", "Error saving GT data");
       }
     };
 
     const loadNextImage = async () => {
-      // Pull next viable image from backend
       await ApiHander.handleNextImage(props.apiUrl, props.webglExperience);
+      resetGroupStates();
 
-      // Clear all fields for new image, except isMpImage since that should be the default
-      GroupTextArea0Value.value = "";
-      GroupTextArea0Active.value = false;
-      GroupTextArea1Value.value = "";
-      GroupTextArea1Active.value = false;
-      GroupTextArea2Value.value = "";
-      GroupTextArea2Active.value = false;
-      isMpImage.value = true;
-      isBadImage.value = false;
-      isVendorOnly.value = false;
+      Object.assign(mailTypes.value, {
+        isMpImage: true,
+        isHwImage: false,
+        isBadImage: false,
+        isVendorOnly: false,
+      });
     };
 
     const loadPrevImage = async () => {
-      // Pull previous image from backend, user's history
       await ApiHander.handlePrevImage(props.apiUrl, props.webglExperience);
+      resetGroupStates();
 
-      // Clear all fields for new image, except isMpImage since that should be the default
-      GroupTextArea0Value.value = "";
-      GroupTextArea0Active.value = false;
-      GroupTextArea1Value.value = "";
-      GroupTextArea1Active.value = false;
-      GroupTextArea2Value.value = "";
-      GroupTextArea2Active.value = false;
-      isMpImage.value = true;
-      isBadImage.value = false;
-      isVendorOnly.value = false;
+      Object.assign(mailTypes.value, {
+        isMpImage: true,
+        isHwImage: false,
+        isBadImage: false,
+        isVendorOnly: false,
+      });
     };
 
     /* ----------------------------- Render function ---------------------------- */
@@ -252,25 +237,25 @@ export default defineComponent({
           <GroupTextArea
             color="green"
             id="dashboardTextarea0"
-            isActive={GroupTextArea0Active.value}
+            isActive={groupTextAreas.value[0].isActive}
             setTextArea={(newValue: string) =>
-              (GroupTextArea0Value.value = newValue)
+              (groupTextAreas.value[0].value = newValue)
             }
           />
           <GroupTextArea
             color="red"
             id="dashboardTextarea1"
-            isActive={GroupTextArea1Active.value}
+            isActive={groupTextAreas.value[1].isActive}
             setTextArea={(newValue: string) =>
-              (GroupTextArea1Value.value = newValue)
+              (groupTextAreas.value[1].value = newValue)
             }
           />
           <GroupTextArea
             color="blue"
             id="dashboardTextarea2"
-            isActive={GroupTextArea2Active.value}
+            isActive={groupTextAreas.value[2].isActive}
             setTextArea={(newValue: string) =>
-              (GroupTextArea2Value.value = newValue)
+              (groupTextAreas.value[2].value = newValue)
             }
           />
         </section>
@@ -280,35 +265,44 @@ export default defineComponent({
           <div class="flex">
             <MailTypeButton
               buttonType="MP"
-              buttonVariable={isMpImage.value}
+              buttonVariable={mailTypes.value.isMpImage}
               roundLeftCorner={true}
               roundRightCorner={false}
               handleClick={() => {
-                isMpImage.value = !isMpImage.value;
-                isHwImage.value = false;
-                isBadImage.value = false;
+                Object.assign(mailTypes.value, {
+                  isMpImage: !mailTypes.value.isMpImage,
+                  isHwImage: false,
+                  isBadImage: false,
+                  isVendorOnly: false,
+                });
               }}
             />
             <MailTypeButton
               buttonType="HW"
-              buttonVariable={isHwImage.value}
+              buttonVariable={mailTypes.value.isHwImage}
               roundLeftCorner={false}
               roundRightCorner={false}
               handleClick={() => {
-                isMpImage.value = false;
-                isHwImage.value = !isHwImage.value;
-                isBadImage.value = false;
+                Object.assign(mailTypes.value, {
+                  isMpImage: false,
+                  isHwImage: !mailTypes.value.isHwImage,
+                  isBadImage: false,
+                  isVendorOnly: false,
+                });
               }}
             />
             <MailTypeButton
               buttonType="Bad"
-              buttonVariable={isBadImage.value}
+              buttonVariable={mailTypes.value.isBadImage}
               roundLeftCorner={false}
               roundRightCorner={true}
               handleClick={() => {
-                isMpImage.value = false;
-                isHwImage.value = false;
-                isBadImage.value = !isBadImage.value;
+                Object.assign(mailTypes.value, {
+                  isMpImage: false,
+                  isHwImage: false,
+                  isBadImage: !mailTypes.value.isBadImage,
+                  isVendorOnly: false,
+                });
               }}
             />
           </div>
@@ -339,12 +333,10 @@ export default defineComponent({
           <div class="flex gap-2">
             <MailTypeButton
               buttonType="Vendor Only"
-              buttonVariable={isVendorOnly.value}
+              buttonVariable={mailTypes.value.isVendorOnly}
               roundLeftCorner={true}
               roundRightCorner={true}
-              handleClick={() => {
-                isVendorOnly.value = !isVendorOnly.value;
-              }}
+              handleClick={() => (mailTypes.value.isVendorOnly = true)}
             />
           </div>
           <div class="flex self-start">

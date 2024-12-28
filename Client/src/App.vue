@@ -26,10 +26,10 @@ onUnmounted(() => {
   Emitter.all.clear();
 });
 
-/* --------------------------------- Events --------------------------------- */
-Emitter.on("startApp", async () => {
+/* ---------------------------- Template handlers --------------------------- */
+const handleStartApp = async () => {
   // Show statusNotification for loading in case of long login and image pull
-  Emitter.emit("indicateLoading");
+  Emitter.emit("appLoading", "Loading....");
 
   // Transition login page -> app page
   isAppStarted.value = !isAppStarted.value;
@@ -39,7 +39,7 @@ Emitter.on("startApp", async () => {
 
   // Get Vision API key from backend
   webglExperience.resources.apiKey = await ApiHander.getApiKey(apiUrl);
-});
+};
 </script>
 
 <template>
@@ -49,7 +49,12 @@ Emitter.on("startApp", async () => {
     leaveToClass="opacity-0"
     leaveActiveClass="duration-[500ms]"
   >
-    <LoginPage v-if="!isAppStarted" id="loginPage" :apiUrl="apiUrl" />
+    <LoginPage
+      v-if="!isAppStarted"
+      id="loginPage"
+      :apiUrl="apiUrl"
+      :handleStartApp="handleStartApp"
+    />
   </Transition>
 
   <!-- Main app -->

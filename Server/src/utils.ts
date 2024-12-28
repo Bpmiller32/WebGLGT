@@ -71,6 +71,7 @@ export default class Utils {
     const collection = `projects/${projectId}/databases/(default)/collectionGroups/${collectionId}`;
     const indexConfig = {
       fields: [
+        { fieldPath: "assignedTo", order: "ASCENDING" },
         { fieldPath: "status", order: "ASCENDING" },
         { fieldPath: "createdAt", order: "ASCENDING" },
         { fieldPath: "__name__", order: "ASCENDING" },

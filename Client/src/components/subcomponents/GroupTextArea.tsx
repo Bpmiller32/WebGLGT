@@ -58,7 +58,6 @@ export default defineComponent({
 
             value.value = normalizedValue;
             props.setTextArea(normalizedValue);
-            console.log("TextArea value:", normalizedValue);
           }
 
           isUpdating = false;

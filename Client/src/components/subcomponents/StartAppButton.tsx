@@ -10,7 +10,7 @@ export default defineComponent({
       type: Boolean as PropType<boolean>,
       required: true,
     },
-    handleStartAppClicked: {
+    handleStartAppButtonClicked: {
       type: Function as PropType<() => void>,
       required: true,
     },
@@ -21,7 +21,7 @@ export default defineComponent({
         type="button"
         onClick={
           props.isButtonEnabled && props.isServerOnline
-            ? props.handleStartAppClicked
+            ? props.handleStartAppButtonClicked
             : undefined
         }
         class={[

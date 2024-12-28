@@ -25,7 +25,8 @@ export default class ImageContainer {
   public input!: Input;
   private world!: World;
   public debug?: Debug;
-  public isDownloadEnabled!: boolean;
+  public isScreenshotDownloadEnabled!: boolean;
+  public isOriginalDownloadEnabled!: boolean;
 
   public geometry!: THREE.BoxGeometry;
   public materials!: THREE.MeshBasicMaterial[];
@@ -64,7 +65,8 @@ export default class ImageContainer {
     this.world = this.experience.world;
     this.input = this.experience.input;
 
-    this.isDownloadEnabled = false;
+    this.isScreenshotDownloadEnabled = false;
+    this.isOriginalDownloadEnabled = false;
 
     // Class fields
     this.rotationSpeed = 0.005;
@@ -162,21 +164,21 @@ export default class ImageContainer {
   }
 
   private debugDownloadImage(dataUrl: string) {
-    if (!this.isDownloadEnabled) {
-      return;
+    if (this.isScreenshotDownloadEnabled) {
+      // Debug, Automatically download the screenshot as a PNG file
+      const renderScreenshotLink = document.createElement("a");
+      renderScreenshotLink.id = "debugDownloadImageScreenshot";
+      renderScreenshotLink.href = dataUrl;
+      // Specify the file name
+      renderScreenshotLink.download = "renderScreenshot.png";
+      // Not appending the element to the document, only creating, no need to clean up
+      renderScreenshotLink.click();
+
+      // Wait a second before creating next link, simple workaround
+      setTimeout(() => {}, 1000);
     }
 
-    // Debug, Automatically download the screenshot as a PNG file
-    const renderScreenshotLink = document.createElement("a");
-    renderScreenshotLink.id = "debugDownloadImageScreenshot";
-    renderScreenshotLink.href = dataUrl;
-    // Specify the file name
-    renderScreenshotLink.download = "renderScreenshot.png";
-    // Not appending the element to the document, only creating, no need to clean up
-    renderScreenshotLink.click();
-
-    // Download the full image before the renderScreenshot
-    if (this.resources.currentImageBlob) {
+    if (this.isOriginalDownloadEnabled && this.resources.currentImageBlob) {
       // Clean up any previous blob URL
       if (this.resources.currentImageUrl) {
         URL.revokeObjectURL(this.resources.currentImageUrl);

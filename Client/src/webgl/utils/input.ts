@@ -52,7 +52,8 @@ export default class Input {
   public dashboardTextarea0: HTMLTextAreaElement | null;
   public dashboardTextarea1: HTMLTextAreaElement | null;
   public dashboardTextarea2: HTMLTextAreaElement | null;
-  public dashboardImageName: HTMLLabelElement | null;
+  public currentDashboardImageName: HTMLLabelElement | null;
+  public previousDashboardImageName: string | null;
 
   public keys: Key[];
 
@@ -106,9 +107,10 @@ export default class Input {
       "dashboardTextarea2"
     ) as HTMLTextAreaElement;
 
-    this.dashboardImageName = document.getElementById(
+    this.currentDashboardImageName = document.getElementById(
       "gtImageName"
     ) as HTMLLabelElement;
+    this.previousDashboardImageName = "";
 
     /* ------------------------------- Define keys ------------------------------ */
     this.keys = [
@@ -253,7 +255,7 @@ export default class Input {
           if (eventResult) {
             // Emitter.emit("resetImage");
             // TODO: remove after debug
-            Emitter.emit("test");
+            // Emitter.emit("test");
           }
 
           this.isF9KeyPressed = eventResult;

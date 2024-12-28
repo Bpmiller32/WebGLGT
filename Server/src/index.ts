@@ -10,6 +10,11 @@ import { envVariables } from "./envConfig";
 import { ImageDocument } from "./types/imageDocument";
 import Utils from "./utils";
 
+interface TransactionResult {
+  id: string;
+  imageName: string;
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                    Setup                                   */
 /* -------------------------------------------------------------------------- */
@@ -98,9 +103,9 @@ app.post(
     const userRef = db.collection("users").doc(username);
     await userRef.update({ lastAccessedTime: new Date() });
 
-    // Use a Firestore transaction to atomically query
-    const dbResult = await db.runTransaction(
-      async (transaction: Transaction) => {
+    try {
+      // Use a Firestore transaction to atomically query
+      const dbResult = await db.runTransaction<TransactionResult | null>(async (transaction: Transaction) => {
         // Get user that sent request
         const userDoc = await transaction.get(userRef);
         const userData = userDoc.data() || {
@@ -165,6 +170,13 @@ app.post(
             .limit(10)
         );
 
+        // Debug logging
+        console.log("Found inProgress entries:", snapshot.docs.length);
+        console.log("Current entry ID:", userData.currentEntryId);
+        snapshot.docs.forEach((doc, i) => {
+          console.log(`Entry ${i}:`, { id: doc.id, data: doc.data() });
+        });
+
         // No unclaimed or inProgress entries found, update user and return
         if (snapshot.empty) {
           // Update user
@@ -172,12 +184,8 @@ app.post(
           return null;
         }
 
-        // Find an inProgress entry that isn’t the current entry
-        const candidateDoc = snapshot.docs.find(
-          (doc) => doc.id !== userData.currentEntryId
-        );
-
-        // All inProgress entries are already the current entry, update user and return
+        // Find an inProgress entry that isn't the current entry
+        const candidateDoc = snapshot.docs[0]; // Just take the first one for now
         if (!candidateDoc) {
           transaction.set(userRef, { history }, { merge: true });
           return null;
@@ -195,31 +203,34 @@ app.post(
 
         const entryData = candidateDoc.data();
         return { id: candidateDoc.id, imageName: entryData.imageName };
+      });
+
+      // No viable images in collection to grab
+      if (!dbResult) {
+        return res.status(404).send({ message: "No available entries" });
       }
-    );
 
-    // No viable images in collection to grab
-    if (!dbResult) {
-      return res.status(404).send({ message: "No available entries" });
+      // Construct the full path to the image
+      const imagePath = path.join(
+        envVariables.IMAGES_PATH,
+        directoryPath,
+        dbResult.imageName
+      );
+      // Check if the image exists on disk
+      const imageBlob = await Utils.readImageAsBase64(imagePath);
+
+      // Spread dbResult, add imageBlob, send the response
+      res.send({ ...dbResult, imageBlob });
+    } catch (error: any) {
+      console.error("Error in /next endpoint:", error);
+      return res.status(500).send({ message: "Internal server error", error: error.message });
     }
-
-    // Construct the full path to the image
-    const imagePath = path.join(
-      envVariables.IMAGES_PATH,
-      directoryPath,
-      dbResult.imageName
-    );
-    // Check if the image exists on disk
-    const imageBlob = await Utils.readImageAsBase64(imagePath);
-
-    // Spread dbResult, add imageBlob, send the response
-    res.send({ ...dbResult, imageBlob });
   })
 );
 
 /* ----------------------------- Previous image ----------------------------- */
 app.post(
-  "/previous",
+  "/prev",
   requireAuth,
   Utils.asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Grab username from request modified by requireAuth middleware
@@ -245,9 +256,10 @@ app.post(
       lastAccessedTime: new Date(),
     });
 
-    // Use a Firestore transaction to atomically query
-    const dbResult = await db.runTransaction(
-      async (transaction: Transaction) => {
+    try {
+      // Use a Firestore transaction to atomically query
+      const dbResult = await db.runTransaction<TransactionResult | null>(
+        async (transaction: Transaction) => {
         // Get user that sent request
         const userDoc = await transaction.get(userRef);
         const userData = userDoc.data() || {
@@ -286,22 +298,26 @@ app.post(
       }
     );
 
-    // If no previous entry
-    if (!dbResult) {
-      return res.status(404).send({ message: "No previous entry" });
+      // If no previous entry
+      if (!dbResult) {
+        return res.status(404).send({ message: "No previous entry" });
+      }
+
+      // Construct the full path to the image
+      const imagePath = path.join(
+        envVariables.IMAGES_PATH,
+        directoryPath,
+        dbResult.imageName
+      );
+      // Check if the image exists on disk
+      const imageBlob = await Utils.readImageAsBase64(imagePath);
+
+      // Spread dbResult, add imageBlob, send the response
+      res.send({ ...dbResult, imageBlob });
+    } catch (error: any) {
+      console.error("Error in /prev endpoint:", error);
+      return res.status(500).send({ message: "Internal server error", error: error.message });
     }
-
-    // Construct the full path to the image
-    const imagePath = path.join(
-      envVariables.IMAGES_PATH,
-      directoryPath,
-      dbResult.imageName
-    );
-    // Check if the image exists on disk
-    const imageBlob = await Utils.readImageAsBase64(imagePath);
-
-    // Spread dbResult, add imageBlob, send the response
-    res.send({ ...dbResult, imageBlob });
   })
 );
 
@@ -342,8 +358,8 @@ app.post(
       return res.status(404).json({ error: "Image document not found" });
     }
 
+    // Set the finishedAt date here for consistency, node has a different toLocaleString than vite/browser
     updateData.finishedAt = new Date();
-    console.log("updateData: ", updateData);
 
     // Update the document with the provided data
     await imageRef.update(updateData);

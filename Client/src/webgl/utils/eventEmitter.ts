@@ -6,10 +6,10 @@ import mitt from "mitt";
 
 type EventMap = {
   // app state
-  startApp: void;
-  indicateLoading: void;
   appReady: void;
-  appError: void;
+  appLoading: string;
+  appWarning: string;
+  appError: string;
   // time
   tick: void;
   // sizes
@@ -20,8 +20,6 @@ type EventMap = {
   mouseUp: MouseEvent;
   mouseWheel: WheelEvent;
   lockPointer: boolean;
-
-  test: void;
 
   // world events
   changeSelectionGroup: number;

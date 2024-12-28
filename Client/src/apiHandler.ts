@@ -7,66 +7,66 @@ export default class ApiHander {
     apiUrl: string,
     webglExperience: Experience
   ) {
-    try {
-      // Retrieve projectName and directoryPath from localStorage
-      const projectName = localStorage.getItem("projectName");
-      const directoryPath = localStorage.getItem("directoryPath");
-      if (!projectName || !directoryPath) {
-        throw new Error("ProjectName or DirectoryPath missing, re-login");
-      }
-
-      // Pull next viable image from project db
-      const image = await ApiHander.next(apiUrl, projectName, directoryPath);
-      if (!image) {
-        return;
-      }
-
-      // Start image load into webgl scene as a texture
-      webglExperience.resources.loadGtImageFromApi(image.imageBlob, image.blob);
-
-      // Set the image's name in the GUI
-      if (webglExperience.input.dashboardImageName) {
-        webglExperience.input.dashboardImageName.innerText = image.imageName;
-      }
-
-      // Note: Not revoking URL here since we need it for downloading later
-    } catch (error) {
-      console.error("Error handling next image:", error);
-      Emitter.emit("appError");
+    // Retrieve projectName and directoryPath from localStorage
+    const projectName = localStorage.getItem("projectName");
+    const directoryPath = localStorage.getItem("directoryPath");
+    if (!projectName || !directoryPath) {
+      throw new Error("ProjectName or DirectoryPath missing, re-login");
     }
+
+    // Pull next viable image from project db
+    const image = await ApiHander.next(apiUrl, projectName, directoryPath);
+    if (!image) {
+      return;
+    }
+
+    // Start image load into webgl scene as a texture
+    webglExperience.resources.loadGtImageFromApi(image.imageBlob, image.blob);
+
+    // Set the image's name in the GUI and check if it changed
+    if (webglExperience.input.currentDashboardImageName) {
+      const newImageName = image.imageName;
+      if (webglExperience.input.previousDashboardImageName === newImageName) {
+        Emitter.emit(
+          "appWarning",
+          "No more unclaimed, loaded previously unfinished image"
+        );
+      }
+
+      webglExperience.input.currentDashboardImageName.innerText = newImageName;
+      webglExperience.input.previousDashboardImageName = newImageName;
+    }
+
+    // Note: Not revoking URL here since we may need it for downloading later
   }
 
   public static async handlePrevImage(
     apiUrl: string,
     webglExperience: Experience
   ) {
-    try {
-      // Retrieve projectName and directoryPath from localStorage
-      const projectName = localStorage.getItem("projectName");
-      const directoryPath = localStorage.getItem("directoryPath");
-      if (!projectName || !directoryPath) {
-        throw new Error("ProjectName or DirectoryPath missing, re-login");
-      }
-
-      // Pull previous image from project db
-      const image = await ApiHander.prev(apiUrl, projectName, directoryPath);
-      if (!image) {
-        return;
-      }
-
-      // Start image load into webgl scene as a texture
-      webglExperience.resources.loadGtImageFromApi(image.imageBlob, image.blob);
-
-      // Set the image's name in the GUI
-      if (webglExperience.input.dashboardImageName) {
-        webglExperience.input.dashboardImageName.innerText = image.imageName;
-      }
-
-      // Note: Not revoking URL here since we need it for downloading later
-    } catch (error) {
-      console.error("Error handling previous image:", error);
-      Emitter.emit("appError");
+    // Retrieve projectName and directoryPath from localStorage
+    const projectName = localStorage.getItem("projectName");
+    const directoryPath = localStorage.getItem("directoryPath");
+    if (!projectName || !directoryPath) {
+      throw new Error("ProjectName or DirectoryPath missing, re-login");
     }
+
+    // Pull previous image from project db
+    const image = await ApiHander.prev(apiUrl, projectName, directoryPath);
+    if (!image) {
+      return;
+    }
+
+    // Start image load into webgl scene as a texture
+    webglExperience.resources.loadGtImageFromApi(image.imageBlob, image.blob);
+
+    // Set the image's name in the GUI
+    if (webglExperience.input.currentDashboardImageName) {
+      webglExperience.input.currentDashboardImageName.innerText =
+        image.imageName;
+    }
+
+    // Note: Not revoking URL here since we need may it for downloading later
   }
 
   public static async pingServer(apiUrl: string) {
@@ -75,7 +75,7 @@ export default class ApiHander {
       return true;
     } catch {
       console.error("Server not available");
-      Emitter.emit("appError");
+      Emitter.emit("appError", "Server not available");
       return false;
     }
   }
@@ -97,8 +97,8 @@ export default class ApiHander {
 
       return response.data;
     } catch {
-      console.error("Server not available");
-      Emitter.emit("appError");
+      console.error("Error getting apiKey");
+      Emitter.emit("appError", "Error getting apiKey");
       return "";
     }
   }
@@ -127,7 +127,6 @@ export default class ApiHander {
       return true;
     } catch {
       console.error("Login failed: incorrect username or password");
-      // Emitter.emit("appError");
       return false;
     }
   }
@@ -146,7 +145,7 @@ export default class ApiHander {
 
       // Make a POST request to the protected endpoint
       const response = await axios.post(
-        apiUrl + "/previous", // Endpoint
+        apiUrl + "/prev", // Endpoint
         { projectName, directoryPath }, // Request body
         {
           headers: {
@@ -179,7 +178,7 @@ export default class ApiHander {
       };
     } catch {
       console.error("Could not navigate to or download the previous image");
-      Emitter.emit("appError");
+      Emitter.emit("appError", "Error getting prev image");
     }
   }
 
@@ -230,7 +229,7 @@ export default class ApiHander {
       };
     } catch {
       console.error("Could not navigate to or download the next image");
-      Emitter.emit("appError");
+      Emitter.emit("appError", "Error getting next image");
     }
   }
 }

@@ -24,7 +24,11 @@ export const debugImageContainer = (imageContainer: ImageContainer) => {
     .step(0.01)
     .listen();
   imageContainerDebug
-    ?.add(imageContainer, "isDownloadEnabled")
-    .name("downloadImage?")
+    ?.add(imageContainer, "isScreenshotDownloadEnabled")
+    .name("dlScreenshotImage?")
+    .listen();
+  imageContainerDebug
+    ?.add(imageContainer, "isOriginalDownloadEnabled")
+    .name("dlOriginalImage?")
     .listen();
 };

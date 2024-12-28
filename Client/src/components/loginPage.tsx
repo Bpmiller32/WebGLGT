@@ -1,4 +1,3 @@
-import Emitter from "../webgl/utils/eventEmitter";
 import ApiHandler from "../apiHandler";
 import { defineComponent, onMounted, PropType, ref } from "vue";
 import AppLogo from "./subcomponents/AppLogo";
@@ -12,6 +11,10 @@ export default defineComponent({
   props: {
     apiUrl: {
       type: String as PropType<string>,
+      required: true,
+    },
+    handleStartApp: {
+      type: Function as PropType<() => void>,
       required: true,
     },
   },
@@ -37,16 +40,16 @@ export default defineComponent({
       }
     });
 
-    /* ----------------------------- Template events ---------------------------- */
-    const handleStartAppClicked = async () => {
-      // TODO: remove after debug
-      // Retrieve the token from localStorage
-      const token = localStorage.getItem("jwtToken");
-      if (!token) {
-        throw new Error("No token found. Please log in.");
-      }
+    /* ---------------------------- Template handlers --------------------------- */
+    const handleStartAppButtonClicked = async () => {
+      // // TODO: remove after debug
+      // // Retrieve the token from localStorage
+      // const token = localStorage.getItem("jwtToken");
+      // if (!token) {
+      //   throw new Error("No token found. Please log in.");
+      // }
 
-      // Emitter.emit("startApp");
+      // props.handleStartApp();
       // return;
 
       const isAuthenticated = await ApiHandler.login(
@@ -56,7 +59,7 @@ export default defineComponent({
       );
 
       if (isAuthenticated) {
-        Emitter.emit("startApp");
+        props.handleStartApp();
       } else {
         handleLoginError();
       }
@@ -108,7 +111,7 @@ export default defineComponent({
             <StartAppButton
               isButtonEnabled={isButtonEnabled.value}
               isServerOnline={isServerOnline.value}
-              handleStartAppClicked={handleStartAppClicked}
+              handleStartAppButtonClicked={handleStartAppButtonClicked}
             />
             <LoginErrorLabel didLoginFail={didLoginFail.value} />
           </div>
