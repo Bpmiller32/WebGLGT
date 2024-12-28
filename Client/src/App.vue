@@ -3,13 +3,13 @@ import { onMounted, onUnmounted, ref } from "vue";
 import Experience from "./webgl/experience.ts";
 import EditorDashboard from "./components/EditorDashboard.tsx";
 import LoginPage from "./components/LoginPage.tsx";
-import ApiHander from "./apiHandler.ts";
+import ApiHandler from "./apiHandler.ts";
 import StatusNotification from "./components/StatusNotification.tsx";
 import Emitter from "./webgl/utils/eventEmitter.ts";
 
 /* -------------------------------- App setup ------------------------------- */
 const webglRef = ref<HTMLCanvasElement | null>(null);
-const isAppStarted = ref(false);
+const isAppStarted = ref<boolean>(false);
 
 const apiUrl = import.meta.env.VITE_NGROK_URL;
 const webglExperience = Experience.getInstance();
@@ -35,10 +35,10 @@ const handleStartApp = async () => {
   isAppStarted.value = !isAppStarted.value;
 
   // Handle 1st image pull, future image pulls will be handled by events in EditorDashboard
-  await ApiHander.handleNextImage(apiUrl, webglExperience);
+  await ApiHandler.handleNextImage(apiUrl, webglExperience);
 
   // Get Vision API key from backend
-  webglExperience.resources.apiKey = await ApiHander.getApiKey(apiUrl);
+  webglExperience.resources.apiKey = await ApiHandler.getApiKey(apiUrl);
 };
 </script>
 
@@ -63,7 +63,7 @@ const handleStartApp = async () => {
     enterToClass="opacity-100"
     enterActiveClass="duration-[2500ms]"
   >
-    <main v-show="isAppStarted">
+    <main v-show="isAppStarted" class="delay-[500ms]">
       <StatusNotification class="absolute top-0 left-1/2 -translate-x-1/2" />
 
       <EditorDashboard

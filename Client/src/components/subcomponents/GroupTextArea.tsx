@@ -22,7 +22,7 @@ export default defineComponent({
   },
   setup(props) {
     // Ugly method to intercept programmatic changes to textArea. Only way I could consistantly get it working since textArea.value.value is changed outside of Vue reactivity system
-    const value = ref("");
+    const value = ref<string>("");
     let isUpdating = false;
     let originalDescriptor: PropertyDescriptor | undefined;
 

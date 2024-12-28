@@ -9,11 +9,7 @@ import { configureMiddleware, requireAuth } from "./middleware";
 import { envVariables } from "./envConfig";
 import { ImageDocument } from "./types/imageDocument";
 import Utils from "./utils";
-
-interface TransactionResult {
-  id: string;
-  imageName: string;
-}
+import { TransactionResult } from "./types/transactionResult";
 
 /* -------------------------------------------------------------------------- */
 /*                                    Setup                                   */
@@ -77,6 +73,30 @@ app.post(
   })
 );
 
+/* ---------------------------- Get projects info --------------------------- */
+app.get(
+  "/projectsInfo",
+  Utils.asyncHandler(async (req: Request, res: Response) => {
+    try {
+      // Get all collections
+      const collections = await db.listCollections();
+
+      // Filter out 'users' and 'siteVisits' collections and map to collection names
+      const projectCollections = collections
+        .map((col) => col.id)
+        .filter(
+          (name) => name !== "users" && name !== "siteVisits"
+          //  && name !== "testTjx2"
+        );
+
+      res.status(200).json(projectCollections);
+    } catch (error: any) {
+      console.error("Error in /projectsInfo endpoint:", error);
+      res.status(500).json({ error: "Failed to fetch projects information" });
+    }
+  })
+);
+
 /* ------------------------------- Next image ------------------------------- */
 app.post(
   "/next",
@@ -105,105 +125,100 @@ app.post(
 
     try {
       // Use a Firestore transaction to atomically query
-      const dbResult = await db.runTransaction<TransactionResult | null>(async (transaction: Transaction) => {
-        // Get user that sent request
-        const userDoc = await transaction.get(userRef);
-        const userData = userDoc.data() || {
-          currentEntryId: null,
-          history: [],
-        };
-        const history = userData.history || [];
+      const dbResult = await db.runTransaction<TransactionResult | null>(
+        async (transaction: Transaction) => {
+          // Get user that sent request
+          const userDoc = await transaction.get(userRef);
+          const userData = userDoc.data() || {
+            currentEntryId: null,
+            history: [],
+          };
+          const history = userData.history || [];
 
-        // Push current entry to history if it exists
-        if (userData.currentEntryId) {
-          history.push(userData.currentEntryId);
-        }
+          // Push current entry to history if it exists
+          if (userData.currentEntryId) {
+            history.push(userData.currentEntryId);
+          }
 
-        // Ensure history has no more than 5 entries, remove the oldest entry
-        if (history.length > 5) {
-          history.shift();
-        }
+          // Ensure history has no more than 5 entries, remove the oldest entry
+          if (history.length > 5) {
+            history.shift();
+          }
 
-        // Grab collection name from body
-        const entriesRef = db.collection(projectName);
+          // Grab collection name from body
+          const entriesRef = db.collection(projectName);
 
-        // Run the query against snapshot of the db, try to find unclaimed entry first
-        let snapshot = await transaction.get(
-          entriesRef
-            .where("status", "==", "unclaimed")
-            .orderBy("createdAt", "asc")
-            .limit(1)
-        );
+          // Run the query against snapshot of the db, try to find unclaimed entry first
+          let snapshot = await transaction.get(
+            entriesRef
+              .where("status", "==", "unclaimed")
+              .orderBy("createdAt", "asc")
+              .limit(1)
+          );
 
-        // Unclaimed entry found
-        if (!snapshot.empty) {
-          const entryDoc = snapshot.docs[0];
-          const entryData = entryDoc.data();
+          // Unclaimed entry found
+          if (!snapshot.empty) {
+            const entryDoc = snapshot.docs[0];
+            const entryData = entryDoc.data();
 
-          // Update entry status to inProgress and assign to the user
-          transaction.update(entryDoc.ref, {
-            assignedTo: username,
-            status: "inProgress",
-            claimedAt: new Date(),
-          });
+            // Update entry status to inProgress and assign to the user
+            transaction.update(entryDoc.ref, {
+              assignedTo: username,
+              status: "inProgress",
+              claimedAt: new Date(),
+            });
 
-          // Update user
+            // Update user
+            transaction.set(
+              userRef,
+              {
+                currentEntryId: entryDoc.id,
+                history,
+              },
+              { merge: true }
+            );
+
+            return { id: entryDoc.id, imageName: entryData.imageName };
+          }
+
+          // No unclaimed entry found, look for an inProgress entry assigned to the user
+          snapshot = await transaction.get(
+            entriesRef
+              .where("status", "==", "inProgress")
+              .where("assignedTo", "==", username)
+              .orderBy("createdAt", "asc")
+              // Increase the limit to ensure a valid entry is found
+              .limit(10)
+          );
+
+          // No unclaimed or inProgress entries found, update user and return
+          if (snapshot.empty) {
+            // Update user
+            transaction.set(userRef, { history }, { merge: true });
+            return null;
+          }
+
+          // Find an inProgress entry that isn't the current entry
+          const candidateDoc = snapshot.docs[0]; // Just take the first one for now
+          if (!candidateDoc) {
+            transaction.set(userRef, { history }, { merge: true });
+            return null;
+          }
+
+          // Update the user document with the new current entry
           transaction.set(
             userRef,
             {
-              currentEntryId: entryDoc.id,
+              currentEntryId: candidateDoc.id,
               history,
             },
             { merge: true }
           );
 
-          return { id: entryDoc.id, imageName: entryData.imageName };
+          const entryData = candidateDoc.data();
+          return { id: candidateDoc.id, imageName: entryData.imageName };
         }
-
-        // No unclaimed entry found, look for an inProgress entry assigned to the user
-        snapshot = await transaction.get(
-          entriesRef
-            .where("status", "==", "inProgress")
-            .where("assignedTo", "==", username)
-            .orderBy("createdAt", "asc")
-            // Increase the limit to ensure a valid entry is found
-            .limit(10)
-        );
-
-        // Debug logging
-        console.log("Found inProgress entries:", snapshot.docs.length);
-        console.log("Current entry ID:", userData.currentEntryId);
-        snapshot.docs.forEach((doc, i) => {
-          console.log(`Entry ${i}:`, { id: doc.id, data: doc.data() });
-        });
-
-        // No unclaimed or inProgress entries found, update user and return
-        if (snapshot.empty) {
-          // Update user
-          transaction.set(userRef, { history }, { merge: true });
-          return null;
-        }
-
-        // Find an inProgress entry that isn't the current entry
-        const candidateDoc = snapshot.docs[0]; // Just take the first one for now
-        if (!candidateDoc) {
-          transaction.set(userRef, { history }, { merge: true });
-          return null;
-        }
-
-        // Update the user document with the new current entry
-        transaction.set(
-          userRef,
-          {
-            currentEntryId: candidateDoc.id,
-            history,
-          },
-          { merge: true }
-        );
-
-        const entryData = candidateDoc.data();
-        return { id: candidateDoc.id, imageName: entryData.imageName };
-      });
+      );
 
       // No viable images in collection to grab
       if (!dbResult) {
@@ -223,7 +238,9 @@ app.post(
       res.send({ ...dbResult, imageBlob });
     } catch (error: any) {
       console.error("Error in /next endpoint:", error);
-      return res.status(500).send({ message: "Internal server error", error: error.message });
+      return res
+        .status(500)
+        .send({ message: "Internal server error", error: error.message });
     }
   })
 );
@@ -260,43 +277,43 @@ app.post(
       // Use a Firestore transaction to atomically query
       const dbResult = await db.runTransaction<TransactionResult | null>(
         async (transaction: Transaction) => {
-        // Get user that sent request
-        const userDoc = await transaction.get(userRef);
-        const userData = userDoc.data() || {
-          currentEntryId: null,
-          history: [],
-        };
-        const history = userData.history || [];
+          // Get user that sent request
+          const userDoc = await transaction.get(userRef);
+          const userData = userDoc.data() || {
+            currentEntryId: null,
+            history: [],
+          };
+          const history = userData.history || [];
 
-        // Check if history is empty before doing any writes
-        if (history.length === 0) {
-          return null;
+          // Check if history is empty before doing any writes
+          if (history.length === 0) {
+            return null;
+          }
+
+          // Pop the last visited entry from history
+          const prevEntryId = history.pop();
+
+          // Fix for bug: get the entryDoc as well before any writes, after this all reads are done and can now write (firestore requirement)
+          const entryRef = db.collection(projectName).doc(prevEntryId);
+          const entryDoc = await transaction.get(entryRef);
+
+          // Update entry
+          transaction.update(entryRef, {
+            assignedTo: username,
+            status: "inProgress",
+            claimedAt: new Date(),
+          });
+
+          // Update user
+          transaction.set(
+            userRef,
+            { currentEntryId: prevEntryId, history },
+            { merge: true }
+          );
+
+          return { id: prevEntryId, imageName: entryDoc.data()?.imageName };
         }
-
-        // Pop the last visited entry from history
-        const prevEntryId = history.pop();
-
-        // Fix for bug: get the entryDoc as well before any writes, after this all reads are done and can now write (firestore requirement)
-        const entryRef = db.collection(projectName).doc(prevEntryId);
-        const entryDoc = await transaction.get(entryRef);
-
-        // Update entry
-        transaction.update(entryRef, {
-          assignedTo: username,
-          status: "inProgress",
-          claimedAt: new Date(),
-        });
-
-        // Update user
-        transaction.set(
-          userRef,
-          { currentEntryId: prevEntryId, history },
-          { merge: true }
-        );
-
-        return { id: prevEntryId, imageName: entryDoc.data()?.imageName };
-      }
-    );
+      );
 
       // If no previous entry
       if (!dbResult) {
@@ -316,14 +333,16 @@ app.post(
       res.send({ ...dbResult, imageBlob });
     } catch (error: any) {
       console.error("Error in /prev endpoint:", error);
-      return res.status(500).send({ message: "Internal server error", error: error.message });
+      return res
+        .status(500)
+        .send({ message: "Internal server error", error: error.message });
     }
   })
 );
 
 /* --------------------------- Update image data --------------------------- */
 app.post(
-  "/updateImage",
+  "/update",
   requireAuth,
   Utils.asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Grab username from request modified by requireAuth middleware

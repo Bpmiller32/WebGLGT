@@ -69,7 +69,14 @@ export default class Utils {
 
     // Define collection to add indexes to, custom indexes config
     const collection = `projects/${projectId}/databases/(default)/collectionGroups/${collectionId}`;
-    const indexConfig = {
+    const indexConfigOriginal = {
+      fields: [
+        { fieldPath: "status", order: "ASCENDING" },
+        { fieldPath: "createdAt", order: "ASCENDING" },
+        { fieldPath: "__name__", order: "ASCENDING" },
+      ],
+    };
+    const indexConfigEndOfDeck = {
       fields: [
         { fieldPath: "assignedTo", order: "ASCENDING" },
         { fieldPath: "status", order: "ASCENDING" },
@@ -79,11 +86,19 @@ export default class Utils {
     };
 
     try {
-      // Create the indexes
+      // Create the indexes, for whatever annoying reason Firestore needs two....
       await firestore.projects.databases.collectionGroups.indexes.create({
         parent: collection,
         requestBody: {
-          fields: indexConfig.fields,
+          fields: indexConfigOriginal.fields,
+          queryScope: "COLLECTION",
+        },
+      });
+
+      await firestore.projects.databases.collectionGroups.indexes.create({
+        parent: collection,
+        requestBody: {
+          fields: indexConfigEndOfDeck.fields,
           queryScope: "COLLECTION",
         },
       });

@@ -85,6 +85,8 @@ export default class DelimiterImage {
   public resetPosition() {
     // Move mesh behind the camera for initial position
     this.mesh!.position.copy(this.initialPosition);
+    // Reset scale to original size
+    this.mesh!.scale.set(1, 1, 1);
   }
 
   public destroy() {

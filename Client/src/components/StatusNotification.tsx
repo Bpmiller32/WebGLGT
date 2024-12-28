@@ -11,7 +11,7 @@ import StatusAlert from "./subcomponents/StatusAlert";
 export default defineComponent({
   setup() {
     /* ------------------------ Component state and setup ----------------------- */
-    const isAlertEnabled = ref(false);
+    const isAlertEnabled = ref<boolean>(false);
     const statusAlertText = ref<string | undefined>();
     const statusAlertColor = ref<
       "success" | "loading" | "warning" | "error" | undefined
@@ -53,6 +53,15 @@ export default defineComponent({
       updateAlert("Loading previous image....", "loading");
     });
     Emitter.on("loadedFromApi", () => {
+      isAlertEnabled.value = false;
+    });
+    Emitter.on("stitchBoxes", () => {
+      isAlertEnabled.value = false;
+    });
+    Emitter.on("screenshotImage", () => {
+      isAlertEnabled.value = false;
+    });
+    Emitter.on("resetImage", () => {
       isAlertEnabled.value = false;
     });
     Emitter.on("appLoading", (message: string) => {

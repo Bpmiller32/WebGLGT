@@ -1,7 +1,7 @@
 import Emitter from "../webgl/utils/eventEmitter";
 import { defineComponent, PropType, ref } from "vue";
 import Experience from "../webgl/experience";
-import ApiHander from "../apiHandler";
+import ApiHandler from "../apiHandler";
 import ActionButton from "./subcomponents/ActionButton";
 import MailTypeButton from "./subcomponents/MailTypeButton";
 import GroupTextArea from "./subcomponents/GroupTextArea";
@@ -20,18 +20,23 @@ export default defineComponent({
   setup(props) {
     /* ------------------------ Component state and setup ----------------------- */
     // Template refs
-    const imageNameRef = ref();
-    const gtSavedCount = ref(0);
+    const imageNameRef = ref<HTMLParagraphElement | null>(null);
+    const gtSavedCount = ref<number>(0);
 
     // Group Text Areas
-    const groupTextAreas = ref([
+    const groupTextAreas = ref<{ value: string; isActive: boolean }[]>([
       { value: "", isActive: false },
       { value: "", isActive: false },
       { value: "", isActive: false },
     ]);
 
     // MailType tags
-    const mailTypes = ref({
+    const mailTypes = ref<{
+      isMpImage: boolean;
+      isHwImage: boolean;
+      isBadImage: boolean;
+      isVendorOnly: boolean;
+    }>({
       isMpImage: true, // Make this a default value
       isHwImage: false,
       isBadImage: false,
@@ -45,17 +50,17 @@ export default defineComponent({
     });
     Emitter.on("gotoNextImage", async () => {
       await loadNextImage();
-      resetGroupStates();
+      activateGroup(0);
     });
     Emitter.on("gotoPrevImage", async () => {
       await loadPrevImage();
-      resetGroupStates();
+      activateGroup(0);
     });
     Emitter.on("changeSelectionGroup", (groupNumber) => {
       activateGroup(groupNumber);
     });
     Emitter.on("resetImage", () => {
-      resetGroupStates();
+      activateGroup(0);
     });
     Emitter.on("badImage", async () => {
       Object.assign(mailTypes.value, {
@@ -70,10 +75,6 @@ export default defineComponent({
     });
 
     /* ---------------------------- Helper functions ---------------------------- */
-    const resetGroupStates = () => {
-      groupTextAreas.value.forEach((group) => (group.isActive = false));
-    };
-
     const activateGroup = (groupNumber: number) => {
       groupTextAreas.value.forEach((group, index) => {
         if (index === groupNumber) {
@@ -89,50 +90,55 @@ export default defineComponent({
     const submitToDb = async () => {
       // Determine image type
       let imageType = "";
-      if (mailTypes.value.isMpImage) imageType = "mp";
-      if (mailTypes.value.isHwImage) imageType = "hw";
-      if (mailTypes.value.isBadImage) imageType = "bad";
+      if (mailTypes.value.isMpImage) {
+        imageType = "mp";
+      } else if (mailTypes.value.isHwImage) {
+        imageType = "hw";
+      } else if (mailTypes.value.isBadImage) {
+        imageType = "bad";
+      }
 
-      // Prepare update data
+      // Prepare update data for request body
       const updateData = {
         imageType: imageType,
+        status: "completed",
         rotation:
           props.webglExperience.world.imageContainer?.imageRotation || 0,
         timeOnImage:
           props.webglExperience.world.imageContainer?.stopwatch.elapsedTime ||
           0,
-        status: "completed",
         groupText0: groupTextAreas.value[0].value || "",
         groupText1: groupTextAreas.value[1].value || "",
         groupText2: groupTextAreas.value[2].value || "",
 
-        // Convert coordinates to plain objects with numeric values
+        // Convert coordinates to plain objects with numeric values so they can be stored in Firebase
         groupCoordinates0:
           props.webglExperience.world.selectionGroupManager?.selectionGroupPixelCoordinates0?.map(
             (coord) => ({
-              x: Number(coord.x.toFixed(2)),
-              y: Number(coord.y.toFixed(2)),
+              x: Number(coord.x.toFixed(4)),
+              y: Number(coord.y.toFixed(4)),
             })
           ) || [],
         groupCoordinates1:
           props.webglExperience.world.selectionGroupManager?.selectionGroupPixelCoordinates1?.map(
             (coord) => ({
-              x: Number(coord.x.toFixed(2)),
-              y: Number(coord.y.toFixed(2)),
+              x: Number(coord.x.toFixed(4)),
+              y: Number(coord.y.toFixed(4)),
             })
           ) || [],
         groupCoordinates2:
           props.webglExperience.world.selectionGroupManager?.selectionGroupPixelCoordinates2?.map(
             (coord) => ({
-              x: Number(coord.x.toFixed(2)),
-              y: Number(coord.y.toFixed(2)),
+              x: Number(coord.x.toFixed(4)),
+              y: Number(coord.y.toFixed(4)),
             })
           ) || [],
       };
 
+      // Send the upadte request
       try {
         const requestBody = {
-          projectName: localStorage.getItem("projectName") || "testTjx2",
+          projectName: localStorage.getItem("projectName"),
           updateData,
         };
 
@@ -140,7 +146,7 @@ export default defineComponent({
         // console.log("Full request body:", JSON.stringify(requestBody, null, 2));
 
         // Send update request to server
-        const response = await fetch(`${props.apiUrl}/updateImage`, {
+        const response = await fetch(`${props.apiUrl}/update`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -159,8 +165,8 @@ export default defineComponent({
     };
 
     const loadNextImage = async () => {
-      await ApiHander.handleNextImage(props.apiUrl, props.webglExperience);
-      resetGroupStates();
+      await ApiHandler.handleNextImage(props.apiUrl, props.webglExperience);
+      activateGroup(0);
 
       Object.assign(mailTypes.value, {
         isMpImage: true,
@@ -171,8 +177,8 @@ export default defineComponent({
     };
 
     const loadPrevImage = async () => {
-      await ApiHander.handlePrevImage(props.apiUrl, props.webglExperience);
-      resetGroupStates();
+      await ApiHandler.handlePrevImage(props.apiUrl, props.webglExperience);
+      activateGroup(0);
 
       Object.assign(mailTypes.value, {
         isMpImage: true,
@@ -273,7 +279,7 @@ export default defineComponent({
                   isMpImage: !mailTypes.value.isMpImage,
                   isHwImage: false,
                   isBadImage: false,
-                  isVendorOnly: false,
+                  isVendorOnly: mailTypes.value.isVendorOnly,
                 });
               }}
             />
@@ -287,7 +293,7 @@ export default defineComponent({
                   isMpImage: false,
                   isHwImage: !mailTypes.value.isHwImage,
                   isBadImage: false,
-                  isVendorOnly: false,
+                  isVendorOnly: mailTypes.value.isVendorOnly,
                 });
               }}
             />
@@ -301,7 +307,7 @@ export default defineComponent({
                   isMpImage: false,
                   isHwImage: false,
                   isBadImage: !mailTypes.value.isBadImage,
-                  isVendorOnly: false,
+                  isVendorOnly: mailTypes.value.isVendorOnly,
                 });
               }}
             />
@@ -336,7 +342,9 @@ export default defineComponent({
               buttonVariable={mailTypes.value.isVendorOnly}
               roundLeftCorner={true}
               roundRightCorner={true}
-              handleClick={() => (mailTypes.value.isVendorOnly = true)}
+              handleClick={() =>
+                (mailTypes.value.isVendorOnly = !mailTypes.value.isVendorOnly)
+              }
             />
           </div>
           <div class="flex self-start">

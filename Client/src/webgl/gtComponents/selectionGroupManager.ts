@@ -239,12 +239,34 @@ export default class SelectionGroupManager {
         const delimiterImage = this.world.delimiterImages[i];
 
         if (delimiterImage?.mesh) {
-          // Calculate the delimiter image height
-          const delimiterHeight = this.getMeshHeight(delimiterImage.mesh);
+          // Reset scale to original size before calculating new scale
+          delimiterImage.mesh.scale.set(1, 1, 1);
+
+          // Find the largest dimensions among all croppedMeshes
+          const maxDimensions = new THREE.Vector2(0, 0);
+          selectionGroups.forEach(group => {
+            const bbox = new THREE.Box3().setFromObject(group.croppedMesh);
+            const size = bbox.getSize(new THREE.Vector3());
+            maxDimensions.x = Math.max(maxDimensions.x, size.x);
+            maxDimensions.y = Math.max(maxDimensions.y, size.y);
+          });
+
+          // Calculate scale factors to match the largest dimensions while maintaining aspect ratio
+          const delimiterBBox = new THREE.Box3().setFromObject(delimiterImage.mesh);
+          const delimiterSize = delimiterBBox.getSize(new THREE.Vector3());
+          const scaleX = maxDimensions.x / delimiterSize.x;
+          const scaleY = maxDimensions.y / delimiterSize.y;
+          const scale = Math.min(scaleX, scaleY);
+          
+          // Apply the scale
+          delimiterImage.mesh.scale.set(scale, scale, 1);
+
+          // Recalculate height after scaling
+          const newDelimiterHeight = delimiterSize.y * scale;
 
           // Position the delimiterImage mesh with padding
           delimiterImage.mesh.position.y =
-            totalHeightToAdd + this.delimiterPadding + delimiterHeight / 2;
+            totalHeightToAdd + this.delimiterPadding + newDelimiterHeight / 2;
           delimiterImage.mesh.position.z = 0;
 
           // Update total height including padding
@@ -254,7 +276,7 @@ export default class SelectionGroupManager {
           delimiterImage.mesh.visible = false;
 
           // Update total height for the delimiter
-          totalHeightToAdd += delimiterHeight;
+          totalHeightToAdd += newDelimiterHeight;
         }
       }
     }
