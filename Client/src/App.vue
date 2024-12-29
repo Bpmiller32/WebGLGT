@@ -47,12 +47,11 @@ const handleStartApp = async () => {
   <Transition
     leaveFromClass="opacity-100"
     leaveToClass="opacity-0"
-    leaveActiveClass="duration-[500ms]"
+    leaveActiveClass="duration-[250ms]"
   >
     <LoginPage
       v-if="!isAppStarted"
       id="loginPage"
-      :apiUrl="apiUrl"
       :handleStartApp="handleStartApp"
     />
   </Transition>
@@ -61,15 +60,14 @@ const handleStartApp = async () => {
   <Transition
     enterFromClass="opacity-0"
     enterToClass="opacity-100"
-    enterActiveClass="duration-[2500ms]"
+    enterActiveClass="duration-[1000ms]"
   >
-    <main v-show="isAppStarted" class="delay-[500ms]">
+    <main v-show="isAppStarted" class="delay-[250ms]">
       <StatusNotification class="absolute top-0 left-1/2 -translate-x-1/2" />
 
       <EditorDashboard
         id="gui"
         class="absolute"
-        :apiUrl="apiUrl"
         :webgl-experience="webglExperience"
       />
 

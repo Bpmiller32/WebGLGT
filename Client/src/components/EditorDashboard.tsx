@@ -8,10 +8,6 @@ import GroupTextArea from "./subcomponents/GroupTextArea";
 
 export default defineComponent({
   props: {
-    apiUrl: {
-      type: String as PropType<string>,
-      required: true,
-    },
     webglExperience: {
       type: Object as PropType<Experience>,
       required: true,
@@ -19,6 +15,9 @@ export default defineComponent({
   },
   setup(props) {
     /* ------------------------ Component state and setup ----------------------- */
+    // Env variables
+    const apiUrl = import.meta.env.VITE_NGROK_URL;
+
     // Template refs
     const imageNameRef = ref<HTMLParagraphElement | null>(null);
     const gtSavedCount = ref<number>(0);
@@ -135,37 +134,12 @@ export default defineComponent({
           ) || [],
       };
 
-      // Send the upadte request
-      try {
-        const requestBody = {
-          projectName: localStorage.getItem("projectName"),
-          updateData,
-        };
-
-        // // Debug
-        // console.log("Full request body:", JSON.stringify(requestBody, null, 2));
-
-        // Send update request to server
-        const response = await fetch(`${props.apiUrl}/update`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
-          },
-          body: JSON.stringify(requestBody),
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to update image: ${response.statusText}`);
-        }
-      } catch (error) {
-        console.error("Error updating image:", error);
-        Emitter.emit("appError", "Error saving GT data");
-      }
+      // Send the update request
+      await ApiHandler.updateImageData(apiUrl, updateData);
     };
 
     const loadNextImage = async () => {
-      await ApiHandler.handleNextImage(props.apiUrl, props.webglExperience);
+      await ApiHandler.handleNextImage(apiUrl, props.webglExperience);
       activateGroup(0);
 
       Object.assign(mailTypes.value, {
@@ -177,7 +151,7 @@ export default defineComponent({
     };
 
     const loadPrevImage = async () => {
-      await ApiHandler.handlePrevImage(props.apiUrl, props.webglExperience);
+      await ApiHandler.handlePrevImage(apiUrl, props.webglExperience);
       activateGroup(0);
 
       Object.assign(mailTypes.value, {

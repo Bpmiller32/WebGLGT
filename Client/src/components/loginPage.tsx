@@ -10,10 +10,6 @@ import ProjectSelect from "./subcomponents/ProjectSelect";
 
 export default defineComponent({
   props: {
-    apiUrl: {
-      type: String as PropType<string>,
-      required: true,
-    },
     handleStartApp: {
       type: Function as PropType<() => void>,
       required: true,
@@ -21,6 +17,9 @@ export default defineComponent({
   },
   setup(props) {
     /* ------------------------ Component state and setup ----------------------- */
+    // Env variables
+    const apiUrl = import.meta.env.VITE_NGROK_URL;
+
     // Template ref
     const loginErrorLabelRef = ref<HTMLElement | null>(null);
 
@@ -36,8 +35,8 @@ export default defineComponent({
     const didLoginFail = ref<boolean>(false);
 
     onMounted(async () => {
-      isServerOnline.value = await ApiHandler.pingServer(props.apiUrl);
-      projectList.value = await ApiHandler.getProjects(props.apiUrl);
+      isServerOnline.value = await ApiHandler.pingServer(apiUrl);
+      projectList.value = await ApiHandler.getProjects(apiUrl);
       isDebugButtonEnabled.value = window.location.hash === "#debug";
 
       if (projectList.value.length < 1) {
@@ -48,7 +47,7 @@ export default defineComponent({
     /* ---------------------------- Template handlers --------------------------- */
     const handleStartAppButtonClicked = async () => {
       const isAuthenticated = await ApiHandler.login(
-        props.apiUrl,
+        apiUrl,
         username.value,
         password.value,
         selectedProject.value,
@@ -81,36 +80,23 @@ export default defineComponent({
     return () => (
       <article class="w-screen h-screen flex justify-center items-center">
         <section>
-          {/* App logo */}
           <Transition
             appear
             enterFromClass="opacity-0 translate-y-4"
             enterToClass="opacity-100 translate-y-0"
-            enterActiveClass="duration-[250ms]"
+            enterActiveClass="duration-[500ms]"
           >
-            <AppLogo />
-          </Transition>
+            <div>
+              {/* App logo */}
+              <AppLogo />
 
-          {/* Server status */}
-          <Transition
-            appear
-            enterFromClass="opacity-0 translate-y-4"
-            enterToClass="opacity-100 translate-y-0"
-            enterActiveClass="duration-[250ms]"
-          >
-            <div class="delay-[100ms] flex justify-end">
-              <ServerStatusBadge isServerOnline={isServerOnline.value} />
-            </div>
-          </Transition>
+              {/* Server status */}
 
-          {/* Username and password inputs */}
-          <Transition
-            appear
-            enterFromClass="opacity-0 translate-y-4"
-            enterToClass="opacity-100 translate-y-0"
-            enterActiveClass="duration-[250ms]"
-          >
-            <div class="delay-[200ms]">
+              <div class="flex justify-end">
+                <ServerStatusBadge isServerOnline={isServerOnline.value} />
+              </div>
+
+              {/* Username and password inputs */}
               <UserPassInputs
                 setUsername={(newUsername: string) =>
                   (username.value = newUsername)
@@ -119,27 +105,20 @@ export default defineComponent({
                   (password.value = newPassword)
                 }
               />
-            </div>
-          </Transition>
 
-          {/* Buttons and login feedback */}
-          <Transition
-            appear
-            enterFromClass="opacity-0 translate-y-4"
-            enterToClass="opacity-100 translate-y-0"
-            enterActiveClass="duration-[250ms]"
-          >
-            <div class="delay-[300ms] grid grid-cols-3 justify-between mt-2">
-              <DebugButton
-                isDebugEnabled={isDebugButtonEnabled.value}
-                handleDebugButtonClicked={handleDebugButtonClicked}
-              />
-              <StartAppButton
-                isButtonEnabled={isStartButtonEnabled.value}
-                isServerOnline={isServerOnline.value}
-                handleStartAppButtonClicked={handleStartAppButtonClicked}
-              />
-              <LoginErrorLabel didLoginFail={didLoginFail.value} />
+              {/* Buttons and login feedback */}
+              <div class="grid grid-cols-3 justify-between mt-2">
+                <DebugButton
+                  isDebugEnabled={isDebugButtonEnabled.value}
+                  handleDebugButtonClicked={handleDebugButtonClicked}
+                />
+                <StartAppButton
+                  isButtonEnabled={isStartButtonEnabled.value}
+                  isServerOnline={isServerOnline.value}
+                  handleStartAppButtonClicked={handleStartAppButtonClicked}
+                />
+                <LoginErrorLabel didLoginFail={didLoginFail.value} />
+              </div>
             </div>
           </Transition>
 
@@ -148,12 +127,11 @@ export default defineComponent({
             <Transition
               enterFromClass="opacity-0 translate-y-4"
               enterToClass="opacity-100 translate-y-0"
-              enterActiveClass="duration-[250ms]"
+              enterActiveClass="duration-[500ms]"
             >
               {projectList.value.length !== 0 ? (
-                <div class="delay-[0ms] absolute top-0 left-0 right-0">
+                <div class="delay-[500ms] absolute top-0 left-0 right-0">
                   <ProjectSelect
-                    apiUrl={props.apiUrl}
                     projectList={projectList.value}
                     setSelectedProjectName={(newSelectedProjectName: string) =>
                       (selectedProject.value = newSelectedProjectName)

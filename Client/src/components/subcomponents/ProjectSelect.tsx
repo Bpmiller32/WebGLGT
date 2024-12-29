@@ -2,10 +2,6 @@ import { defineComponent, ref, onMounted, PropType } from "vue";
 
 export default defineComponent({
   props: {
-    apiUrl: {
-      type: String as PropType<string>,
-      required: true,
-    },
     projectList: {
       type: Array as PropType<string[]>,
       required: true,

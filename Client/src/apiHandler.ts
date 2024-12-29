@@ -19,7 +19,7 @@ export default class ApiHander {
       // Retrieve the token from localStorage
       const token = localStorage.getItem("jwtToken");
       if (!token) {
-        throw new Error("No token found. Please log in.");
+        throw new Error("No user token found. Please log in.");
       }
 
       const response = await axios.get(apiUrl + "/getApiKey", {
@@ -42,7 +42,7 @@ export default class ApiHander {
       // Retrieve the token from localStorage
       const token = localStorage.getItem("jwtToken");
       if (!token) {
-        throw new Error("No token found. Please log in.");
+        throw new Error("No user token found. Please log in.");
       }
 
       const response = await axios.get(apiUrl + "/projectsInfo", {
@@ -99,7 +99,7 @@ export default class ApiHander {
       // Retrieve the token from localStorage
       const token = localStorage.getItem("jwtToken");
       if (!token) {
-        throw new Error("No token found. Please log in.");
+        throw new Error("No user token found. Please log in.");
       }
 
       // Make a POST request to the protected endpoint
@@ -138,6 +138,7 @@ export default class ApiHander {
     } catch {
       console.error("Could not navigate to or download the next image");
       Emitter.emit("appError", "Error getting next image");
+      return null;
     }
   }
 
@@ -150,7 +151,7 @@ export default class ApiHander {
       // Retrieve the token from localStorage
       const token = localStorage.getItem("jwtToken");
       if (!token) {
-        throw new Error("No token found. Please log in.");
+        throw new Error("No user token found. Please log in.");
       }
 
       // Make a POST request to the protected endpoint
@@ -189,6 +190,7 @@ export default class ApiHander {
     } catch {
       console.error("Could not navigate to or download the previous image");
       Emitter.emit("appError", "Error getting prev image");
+      return null;
     }
   }
 
@@ -200,7 +202,11 @@ export default class ApiHander {
     const projectName = localStorage.getItem("projectName");
     const directoryPath = localStorage.getItem("directoryPath");
     if (!projectName || !directoryPath) {
-      throw new Error("ProjectName or DirectoryPath missing, re-login");
+      Emitter.emit(
+        "appError",
+        "ProjectName or DirectoryPath missing, re-login"
+      );
+      return;
     }
 
     // Pull next viable image from project db
@@ -237,12 +243,17 @@ export default class ApiHander {
     const projectName = localStorage.getItem("projectName");
     const directoryPath = localStorage.getItem("directoryPath");
     if (!projectName || !directoryPath) {
-      throw new Error("ProjectName or DirectoryPath missing, re-login");
+      Emitter.emit(
+        "appError",
+        "ProjectName or DirectoryPath missing, re-login"
+      );
+      return;
     }
 
     // Pull previous image from project db
     const image = await ApiHander.prev(apiUrl, projectName, directoryPath);
     if (!image) {
+      Emitter.emit("appError", "No image pulled from Server");
       return;
     }
 
@@ -256,5 +267,76 @@ export default class ApiHander {
     }
 
     // Note: Not revoking URL here since we need may it for downloading later
+  }
+
+  public static async updateImageData(apiUrl: string, updateData: any) {
+    try {
+      // Retrieve the token from localStorage
+      const token = localStorage.getItem("jwtToken");
+      if (!token) {
+        throw new Error("No user token found. Please log in");
+      }
+
+      const requestBody = {
+        projectName: localStorage.getItem("projectName"),
+        updateData,
+      };
+
+      const response = await axios.post(`${apiUrl}/update`, requestBody, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.data) {
+        Emitter.emit("appError", "Failed to confirm GT data was saved");
+        return;
+      }
+    } catch (error) {
+      console.error("Error updating image data:", error);
+      Emitter.emit("appError", "Error saving GT data");
+      return;
+    }
+  }
+
+  public static async sendToVisionAPI(apiKey: string, base64Image: string) {
+    try {
+      const requestBody = {
+        requests: [
+          {
+            image: { content: base64Image },
+            features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
+          },
+        ],
+      };
+
+      const response = await axios.post(
+        `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
+        requestBody,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      // Check if result has responses to use, response could come back empty
+      if (
+        !response.data.responses ||
+        !response.data.responses.length ||
+        !response.data.responses[0].fullTextAnnotation
+      ) {
+        console.error("Response from Vision is empty");
+        Emitter.emit("appWarning", "Vision response is empty");
+        return null;
+      }
+
+      return response.data.responses[0].fullTextAnnotation.text;
+    } catch (error) {
+      console.error("Error sending image to Vision API:", error);
+      Emitter.emit("appWarning", "Error sending image to Vision API");
+      return null;
+    }
   }
 }

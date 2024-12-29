@@ -14,6 +14,7 @@ import Stopwatch from "../utils/stopWatch";
 import { debugImageContainer } from "../utils/debug/debugImageContainer";
 import GtUtils from "../utils/gtUtils";
 import World from "../levels/world";
+import ApiHandler from "../../apiHandler";
 
 export default class ImageContainer {
   private experience!: Experience;
@@ -244,39 +245,17 @@ export default class ImageContainer {
 
   /* ----------------------------- Helper methods ----------------------------- */
   private async sendImageToVisionAPI(base64Image: string) {
-    const requestBody = {
-      requests: [
-        {
-          image: { content: base64Image },
-          features: [{ type: "DOCUMENT_TEXT_DETECTION" }],
-        },
-      ],
-    };
+    const fullResultText = await ApiHandler.sendToVisionAPI(
+      this.resources.apiKey,
+      base64Image
+    );
 
-    try {
-      const response = await fetch(
-        `https://vision.googleapis.com/v1/images:annotate?key=${this.resources.apiKey}`,
-        {
-          method: "POST",
-          body: JSON.stringify(requestBody),
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      // Check if result has responses to use, response could come back empty
-      const result = await response.json();
-      if (GtUtils.isResponseEmpty(result.responses)) {
-        throw new Error("Response from Vision is empty");
-      }
-
-      this.separateResultByDelimiter(
-        result.responses[0].fullTextAnnotation.text
-      );
-    } catch (error) {
-      console.error("Error sending image to Vision API:", error);
+    // Check if result has responses to use, response could come back empty - this is handled in ApiHandler
+    if (!fullResultText) {
+      return;
     }
+
+    this.separateResultByDelimiter(fullResultText);
   }
 
   private separateResultByDelimiter(fullResultText: string) {
