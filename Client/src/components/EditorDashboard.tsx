@@ -5,6 +5,11 @@ import ApiHandler from "../apiHandler";
 import ActionButton from "./subcomponents/ActionButton";
 import MailTypeButton from "./subcomponents/MailTypeButton";
 import GroupTextArea from "./subcomponents/GroupTextArea";
+import UserButton from "./subcomponents/UserButton";
+import {
+  ArrowLeftEndOnRectangleIcon,
+  QuestionMarkCircleIcon,
+} from "@heroicons/vue/16/solid";
 
 export default defineComponent({
   props: {
@@ -19,7 +24,6 @@ export default defineComponent({
     const apiUrl = import.meta.env.VITE_NGROK_URL;
 
     // Template refs
-    const imageNameRef = ref<HTMLParagraphElement | null>(null);
     const gtSavedCount = ref<number>(0);
 
     // Group Text Areas
@@ -42,10 +46,19 @@ export default defineComponent({
       isVendorOnly: false,
     });
 
+    // Icons for user buttons
+    const userButtonConfig = {
+      logout: <ArrowLeftEndOnRectangleIcon class="h-5 w-5" />,
+      help: <QuestionMarkCircleIcon class="h-5 w-5" />,
+    };
+
     /* ---------------------------- Lifecycle Events ---------------------------- */
     Emitter.on("fillInForm", async () => {
       await submitToDb();
       gtSavedCount.value++;
+    });
+    Emitter.on("appSuccess", () => {
+      activateGroup(0);
     });
     Emitter.on("appLoading", () => {
       activateGroup(0);
@@ -167,190 +180,213 @@ export default defineComponent({
 
     /* ----------------------------- Render function ---------------------------- */
     return () => (
-      <article class="overflow-hidden w-[27rem] mt-5 ml-5 p-4 bg-slate-800/85 rounded-2xl">
-        {/* Filename, debug info, navigation buttons */}
-        <section class="flex justify-between items-center">
-          <div class="w-32">
-            <div class="flex items-center w-full">
+      <article class="mt-5 ml-5">
+        {/* Image name, GT save count. Outside of controls */}
+        <header class="w-[27rem] pb-2 pl-4 flex">
+          <div class="overflow-hidden">
+            <div class="mb-1 flex items-center w-full">
               <p class="mr-1 font-medium text-gray-100 text-xs text-ellipsis">
                 Image:
               </p>
               <p
                 id="gtImageName"
-                ref={imageNameRef}
-                class="mr-4 self-end overflow-hidden font-medium text-gray-100 text-xs text-ellipsis"
+                class="mr-4 self-end overflow-hidden font-medium text-gray-100 text-xs text-ellipsis whitespace-nowrap"
               />
             </div>
-            <div class="mt-1 flex items-center w-full">
+            <div class="flex items-center w-full">
               <p class="mr-1 font-medium text-gray-100 text-xs text-ellipsis">
                 GT count:
               </p>
-              <p class="mr-4 self-end overflow-hidden font-medium text-gray-100 text-xs text-ellipsis">
+              <p class="mr-4 self-end overflow-hidden font-medium text-gray-100 text-xs text-ellipsis whitespace-nowrap">
                 {gtSavedCount.value}
               </p>
             </div>
           </div>
-          <div class="flex self-start">
-            <ActionButton
-              buttonType="Prev"
-              roundLeftCorner={true}
-              roundRightCorner={false}
-              handleClick={() => Emitter.emit("gotoPrevImage")}
-              showText={true}
-            />
-            <ActionButton
-              buttonType="Next"
-              roundLeftCorner={false}
-              roundRightCorner={false}
-              handleClick={() => Emitter.emit("gotoNextImage")}
-              showText={true}
-            />
-            <ActionButton
-              buttonType="Send"
-              roundLeftCorner={false}
-              roundRightCorner={true}
-              handleClick={() => Emitter.emit("fillInForm")}
-              showText={true}
-            />
-          </div>
-        </section>
+        </header>
 
-        {/* Textareas for Groups */}
-        <section class="mt-4 mb-4">
-          <GroupTextArea
-            color="green"
-            id="dashboardTextarea0"
-            isActive={groupTextAreas.value[0].isActive}
-            setTextArea={(newValue: string) =>
-              (groupTextAreas.value[0].value = newValue)
-            }
-          />
-          <GroupTextArea
-            color="red"
-            id="dashboardTextarea1"
-            isActive={groupTextAreas.value[1].isActive}
-            setTextArea={(newValue: string) =>
-              (groupTextAreas.value[1].value = newValue)
-            }
-          />
-          <GroupTextArea
-            color="blue"
-            id="dashboardTextarea2"
-            isActive={groupTextAreas.value[2].isActive}
-            setTextArea={(newValue: string) =>
-              (groupTextAreas.value[2].value = newValue)
-            }
-          />
-        </section>
+        {/* Controls  */}
+        <aside class="w-[27rem] p-4 bg-slate-800/85 rounded-2xl">
+          {/* User, navigation buttons */}
+          <section class="mb-4 flex justify-between items-center">
+            <div class="flex gap-2">
+              <UserButton
+                icon={userButtonConfig.logout}
+                handleClick={() => {
+                  // Removes all items from localStorage
+                  localStorage.clear();
+                  // Refreshes the current page which will kick back to login screen
+                  location.reload();
+                }}
+              />
+              <UserButton
+                icon={userButtonConfig.help}
+                handleClick={async () => {
+                  await ApiHandler.getPdf(apiUrl);
+                }}
+              />
+            </div>
+            <div class="flex">
+              <ActionButton
+                buttonType="Prev"
+                roundLeftCorner={true}
+                roundRightCorner={false}
+                handleClick={() => Emitter.emit("gotoPrevImage")}
+                showText={true}
+              />
+              <ActionButton
+                buttonType="Next"
+                roundLeftCorner={false}
+                roundRightCorner={false}
+                handleClick={() => Emitter.emit("gotoNextImage")}
+                showText={true}
+              />
+              <ActionButton
+                buttonType="Send"
+                roundLeftCorner={false}
+                roundRightCorner={true}
+                handleClick={() => Emitter.emit("fillInForm")}
+                showText={true}
+              />
+            </div>
+          </section>
 
-        {/* Mail type, Image Action buttons */}
-        <section class="mt-2 flex justify-between items-center">
-          <div class="flex">
-            <MailTypeButton
-              buttonType="MP"
-              buttonVariable={mailTypes.value.isMpImage}
-              roundLeftCorner={true}
-              roundRightCorner={false}
-              handleClick={() => {
-                Object.assign(mailTypes.value, {
-                  isMpImage: !mailTypes.value.isMpImage,
-                  isHwImage: false,
-                  isBadImage: false,
-                  isVendorOnly: mailTypes.value.isVendorOnly,
-                });
-              }}
-            />
-            <MailTypeButton
-              buttonType="HW"
-              buttonVariable={mailTypes.value.isHwImage}
-              roundLeftCorner={false}
-              roundRightCorner={false}
-              handleClick={() => {
-                Object.assign(mailTypes.value, {
-                  isMpImage: false,
-                  isHwImage: !mailTypes.value.isHwImage,
-                  isBadImage: false,
-                  isVendorOnly: mailTypes.value.isVendorOnly,
-                });
-              }}
-            />
-            <MailTypeButton
-              buttonType="Bad"
-              buttonVariable={mailTypes.value.isBadImage}
-              roundLeftCorner={false}
-              roundRightCorner={true}
-              handleClick={() => {
-                Object.assign(mailTypes.value, {
-                  isMpImage: false,
-                  isHwImage: false,
-                  isBadImage: !mailTypes.value.isBadImage,
-                  isVendorOnly: mailTypes.value.isVendorOnly,
-                });
-              }}
-            />
-          </div>
-          <div class="flex">
-            <ActionButton
-              buttonType="Cut"
-              roundLeftCorner={true}
-              roundRightCorner={false}
-              handleClick={() => Emitter.emit("stitchBoxes")}
-            />
-            <ActionButton
-              buttonType="SendToVision"
-              roundLeftCorner={false}
-              roundRightCorner={false}
-              handleClick={() => Emitter.emit("screenshotImage")}
-            />
-            <ActionButton
-              buttonType="Reset"
-              roundLeftCorner={false}
-              roundRightCorner={true}
-              handleClick={() => Emitter.emit("resetImage")}
-            />
-          </div>
-        </section>
-
-        {/* Special mail tagging, Group Action buttons */}
-        <section class="mt-2 flex justify-between items-center">
-          <div class="flex gap-2">
-            <MailTypeButton
-              buttonType="Vendor Only"
-              buttonVariable={mailTypes.value.isVendorOnly}
-              roundLeftCorner={true}
-              roundRightCorner={true}
-              handleClick={() =>
-                (mailTypes.value.isVendorOnly = !mailTypes.value.isVendorOnly)
+          {/* Textareas for Groups */}
+          <section class="mb-4">
+            <GroupTextArea
+              color="green"
+              id="dashboardTextarea0"
+              isActive={groupTextAreas.value[0].isActive}
+              setTextArea={(newValue: string) =>
+                (groupTextAreas.value[0].value = newValue)
               }
             />
-          </div>
-          <div class="flex self-start">
-            <ActionButton
-              buttonType="Group0"
-              roundLeftCorner={true}
-              roundRightCorner={false}
-              handleClick={() => {
-                Emitter.emit("changeSelectionGroup", 0);
-              }}
+            <GroupTextArea
+              color="red"
+              id="dashboardTextarea1"
+              isActive={groupTextAreas.value[1].isActive}
+              setTextArea={(newValue: string) =>
+                (groupTextAreas.value[1].value = newValue)
+              }
             />
-            <ActionButton
-              buttonType="Group1"
-              roundLeftCorner={false}
-              roundRightCorner={false}
-              handleClick={() => {
-                Emitter.emit("changeSelectionGroup", 1);
-              }}
+            <GroupTextArea
+              color="blue"
+              id="dashboardTextarea2"
+              isActive={groupTextAreas.value[2].isActive}
+              setTextArea={(newValue: string) =>
+                (groupTextAreas.value[2].value = newValue)
+              }
             />
-            <ActionButton
-              buttonType="Group2"
-              roundLeftCorner={false}
-              roundRightCorner={true}
-              handleClick={() => {
-                Emitter.emit("changeSelectionGroup", 2);
-              }}
-            />
-          </div>
-        </section>
+          </section>
+
+          {/* Mail type, Image Action buttons */}
+          <section class="mb-2 flex justify-between items-center">
+            <div class="flex">
+              <MailTypeButton
+                buttonType="MP"
+                buttonVariable={mailTypes.value.isMpImage}
+                roundLeftCorner={true}
+                roundRightCorner={false}
+                handleClick={() => {
+                  Object.assign(mailTypes.value, {
+                    isMpImage: !mailTypes.value.isMpImage,
+                    isHwImage: false,
+                    isBadImage: false,
+                    isVendorOnly: mailTypes.value.isVendorOnly,
+                  });
+                }}
+              />
+              <MailTypeButton
+                buttonType="HW"
+                buttonVariable={mailTypes.value.isHwImage}
+                roundLeftCorner={false}
+                roundRightCorner={false}
+                handleClick={() => {
+                  Object.assign(mailTypes.value, {
+                    isMpImage: false,
+                    isHwImage: !mailTypes.value.isHwImage,
+                    isBadImage: false,
+                    isVendorOnly: mailTypes.value.isVendorOnly,
+                  });
+                }}
+              />
+              <MailTypeButton
+                buttonType="Bad"
+                buttonVariable={mailTypes.value.isBadImage}
+                roundLeftCorner={false}
+                roundRightCorner={true}
+                handleClick={() => {
+                  Object.assign(mailTypes.value, {
+                    isMpImage: false,
+                    isHwImage: false,
+                    isBadImage: !mailTypes.value.isBadImage,
+                    isVendorOnly: mailTypes.value.isVendorOnly,
+                  });
+                }}
+              />
+            </div>
+            <div class="flex">
+              <ActionButton
+                buttonType="Cut"
+                roundLeftCorner={true}
+                roundRightCorner={false}
+                handleClick={() => Emitter.emit("stitchBoxes")}
+              />
+              <ActionButton
+                buttonType="SendToVision"
+                roundLeftCorner={false}
+                roundRightCorner={false}
+                handleClick={() => Emitter.emit("screenshotImage")}
+              />
+              <ActionButton
+                buttonType="Reset"
+                roundLeftCorner={false}
+                roundRightCorner={true}
+                handleClick={() => Emitter.emit("resetImage")}
+              />
+            </div>
+          </section>
+
+          {/* Special mail tagging, Group Action buttons */}
+          <section class="flex justify-between items-center">
+            <div class="flex gap-2">
+              <MailTypeButton
+                buttonType="Vendor Only"
+                buttonVariable={mailTypes.value.isVendorOnly}
+                roundLeftCorner={true}
+                roundRightCorner={true}
+                handleClick={() =>
+                  (mailTypes.value.isVendorOnly = !mailTypes.value.isVendorOnly)
+                }
+              />
+            </div>
+            <div class="flex self-start">
+              <ActionButton
+                buttonType="Group0"
+                roundLeftCorner={true}
+                roundRightCorner={false}
+                handleClick={() => {
+                  Emitter.emit("changeSelectionGroup", 0);
+                }}
+              />
+              <ActionButton
+                buttonType="Group1"
+                roundLeftCorner={false}
+                roundRightCorner={false}
+                handleClick={() => {
+                  Emitter.emit("changeSelectionGroup", 1);
+                }}
+              />
+              <ActionButton
+                buttonType="Group2"
+                roundLeftCorner={false}
+                roundRightCorner={true}
+                handleClick={() => {
+                  Emitter.emit("changeSelectionGroup", 2);
+                }}
+              />
+            </div>
+          </section>
+        </aside>
       </article>
     );
   },

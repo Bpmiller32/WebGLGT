@@ -252,7 +252,7 @@ export default class ImageContainer {
 
   private separateResultByDelimiter(fullResultText: string) {
     // Define the delimiter in the image
-    const delimiter = "###############";
+    const delimiter = "#####";
 
     // Split the string into groups
     const groups = fullResultText.split(delimiter).map((group) => group.trim());

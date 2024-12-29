@@ -2,10 +2,6 @@ import { collection, addDoc } from "firebase/firestore";
 import { db } from ".";
 import axios from "axios";
 
-interface IpifyResponse {
-  ip: string;
-}
-
 interface LocationData {
   ip: string;
   city: string;
@@ -18,8 +14,7 @@ interface LocationData {
 }
 
 interface SiteVisitDocument {
-  sectionsVisited: string[];
-  linksClicked: string[];
+  trackedEvents: string[];
   ipAddress: string;
   location: LocationData;
   timestamp: Date;
@@ -30,18 +25,10 @@ export const logSiteVisit = async () => {
   let location = {} as LocationData;
 
   try {
-    const ipResponse = await axios.get<IpifyResponse>(
-      "https://api.ipify.org?format=json"
-    );
-    ipAddress = ipResponse.data.ip;
-  } catch {
-    // Silently ignore IP fetch errors
-  }
-
-  try {
     const locationResponse = await axios.get(
       `https://ipapi.co/${ipAddress}/json/`
     );
+    ipAddress = locationResponse.data.ip;
     location = locationResponse.data;
   } catch {
     // Silently ignore location fetch errors
@@ -49,8 +36,7 @@ export const logSiteVisit = async () => {
 
   try {
     const siteVisit: SiteVisitDocument = {
-      sectionsVisited: [],
-      linksClicked: [],
+      trackedEvents: [],
       ipAddress: ipAddress,
       location: location,
       timestamp: new Date(),
@@ -59,6 +45,7 @@ export const logSiteVisit = async () => {
     const docRef = await addDoc(collection(db, "siteVisits"), siteVisit);
     return docRef.id;
   } catch {
-    // Silently ignore Firestore errors
+    // Return something so to simplify typing when using other analytics methods, silently ignore other Firestore errors
+    return "";
   }
 };

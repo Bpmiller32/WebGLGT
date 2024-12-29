@@ -54,7 +54,7 @@ export default defineComponent({
       updateAlert("Loading previous image....", "loading");
     });
     Emitter.on("loadedFromApi", () => {
-      // Force keep notifications up
+      // Force keep notifications up, simple workaround - revisit if more complicated notification timing needed
       setTimeout(
         () => {
           isAlertEnabled.value = false;

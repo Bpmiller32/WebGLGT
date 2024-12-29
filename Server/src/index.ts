@@ -10,6 +10,7 @@ import { envVariables } from "./envConfig";
 import { ImageDocument } from "./types/imageDocument";
 import Utils from "./utils";
 import { TransactionResult } from "./types/transactionResult";
+import { Parser } from "json2csv";
 
 /* -------------------------------------------------------------------------- */
 /*                                    Setup                                   */
@@ -96,6 +97,30 @@ app.get(
     }
   })
 );
+
+/* --------------------------- Serve PDF help file -------------------------- */
+app.get("/getPdf", (req: Request, res: Response) => {
+  try {
+    // Construct the full path to the PDF file
+    const pdfFilePath = path.join(envVariables.IMAGES_PATH, "helpFile.pdf");
+
+    // Check if the file exists
+    if (!fs.existsSync(pdfFilePath)) {
+      return res.status(404).json({ error: "PDF file not found" });
+    }
+
+    // Send the file to the client
+    res.sendFile(pdfFilePath, (err) => {
+      if (err) {
+        console.error("Error sending the file:", err);
+        res.status(500).json({ error: "Error sending the PDF file" });
+      }
+    });
+  } catch (error: any) {
+    console.error("Error in /getPdf endpoint:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 /* ------------------------------- Next image ------------------------------- */
 app.post(
@@ -492,6 +517,57 @@ app.post("/createImageDatabase", async (req: Request, res: Response) => {
     });
   } catch (error) {
     return res.status(500).send(error);
+  }
+});
+
+/* -------------------------- Export project to csv ------------------------- */
+app.post("/exportToCsv", async (req: Request, res: Response) => {
+  try {
+    // Get collection name from request
+    const { projectName } = req.body;
+
+    if (!projectName || typeof projectName !== "string") {
+      return res
+        .status(400)
+        .json({ error: "Invalid or missing collectionName" });
+    }
+
+    // Fetch all documents in the specified collection
+    const collectionRef = db.collection(projectName);
+    const snapshot = await collectionRef.get();
+
+    if (snapshot.empty) {
+      return res
+        .status(404)
+        .json({ error: "No documents found in the collection" });
+    }
+
+    // Map documents to a JSON array
+    const documents = snapshot.docs.map((doc) => ({
+      id: doc.id, // Include document ID
+      ...doc.data(), // Include document fields
+    }));
+
+    // Convert JSON to CSV
+    const json2csvParser = new Parser();
+    const csv = json2csvParser.parse(documents);
+
+    // Define output file path
+    const outputPath = path.join(
+      envVariables.IMAGES_PATH,
+      `${projectName}.csv`
+    );
+
+    // Write the CSV to a file
+    fs.writeFileSync(outputPath, csv);
+
+    return res.status(200).json({
+      message: "CSV file created successfully",
+      outputPath,
+    });
+  } catch (error) {
+    console.error("Error exporting Firestore data to CSV:", error);
+    return res.status(500).json({ error: "Failed to export data to CSV" });
   }
 });
 

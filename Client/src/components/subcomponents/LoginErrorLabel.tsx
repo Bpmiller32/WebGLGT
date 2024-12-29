@@ -1,4 +1,4 @@
-import { defineComponent, PropType, ref } from "vue";
+import { defineComponent, PropType, ref, watch } from "vue";
 
 export default defineComponent({
   props: {
@@ -6,16 +6,34 @@ export default defineComponent({
       type: Boolean as PropType<boolean>,
       required: true,
     },
+    loginFailAnimationToggle: {
+      type: Boolean as PropType<boolean>,
+      required: true,
+    },
   },
   setup(props) {
-    const loginErrorLabelRef = ref<HTMLElement | null>(null);
+    const toggleAnimation = ref<boolean>(false);
+
+    watch(
+      () => props.loginFailAnimationToggle,
+      () => {
+        // Simple toggle
+        toggleAnimation.value = false;
+
+        setTimeout(() => {
+          toggleAnimation.value = true;
+        }, 100);
+      }
+    );
 
     return () =>
       props.didLoginFail ? (
         <div class="flex items-center justify-self-end">
           <label
-            ref={loginErrorLabelRef}
-            class="text-sm text-red-500 animate-shake"
+            class={[
+              "text-sm text-red-500",
+              toggleAnimation.value && "animate-shake",
+            ]}
           >
             Login failed
           </label>

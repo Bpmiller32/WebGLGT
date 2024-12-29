@@ -6,8 +6,10 @@ import LoginPage from "./components/LoginPage.tsx";
 import ApiHandler from "./apiHandler.ts";
 import StatusNotification from "./components/StatusNotification.tsx";
 import Emitter from "./webgl/utils/eventEmitter.ts";
+import { logTrackedEvent } from "./firebase/logTrackedEvent.ts";
 
 /* -------------------------------- App setup ------------------------------- */
+const sessionId = ref<string>("");
 const webglRef = ref<HTMLCanvasElement | null>(null);
 const isAppStarted = ref<boolean>(false);
 const isAutoLoggingIn = ref<boolean>(false);
@@ -16,6 +18,10 @@ const apiUrl = import.meta.env.VITE_NGROK_URL;
 const webglExperience = Experience.getInstance();
 
 onMounted(async () => {
+  // TODO: working, reenable on deploy
+  // Log site visit
+  // sessionId.value = await logSiteVisit();
+
   // Initialize the WebGL experience
   await webglExperience.configure(webglRef.value);
 
@@ -26,6 +32,7 @@ onMounted(async () => {
   await attemptAutoLogin();
 });
 
+// As good a place as any to teardown WebGL and events
 onUnmounted(() => {
   webglExperience.destroy();
   Emitter.all.clear();
@@ -67,6 +74,7 @@ const attemptAutoLogin = async () => {
 
   // Automatically start app
   isAutoLoggingIn.value = true;
+  logTrackedEvent(sessionId.value, "auto logged in");
   Emitter.emit("appSuccess", "Automatically logged in to previous project");
   await handleStartApp();
 };
@@ -82,6 +90,7 @@ const attemptAutoLogin = async () => {
     <LoginPage
       v-if="!isAppStarted"
       id="loginPage"
+      :sessionId="sessionId"
       :handleStartApp="handleStartApp"
     />
   </Transition>

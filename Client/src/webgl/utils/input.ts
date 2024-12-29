@@ -52,7 +52,7 @@ export default class Input {
   public dashboardTextarea0: HTMLTextAreaElement | null;
   public dashboardTextarea1: HTMLTextAreaElement | null;
   public dashboardTextarea2: HTMLTextAreaElement | null;
-  public currentDashboardImageName: HTMLLabelElement | null;
+  public currentDashboardImageName: string | null;
   public previousDashboardImageName: string | null;
 
   public keys: Key[];
@@ -107,9 +107,7 @@ export default class Input {
       "dashboardTextarea2"
     ) as HTMLTextAreaElement;
 
-    this.currentDashboardImageName = document.getElementById(
-      "gtImageName"
-    ) as HTMLLabelElement;
+    this.currentDashboardImageName = "";
     this.previousDashboardImageName = "";
 
     /* ------------------------------- Define keys ------------------------------ */

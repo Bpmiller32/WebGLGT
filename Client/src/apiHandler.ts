@@ -39,24 +39,38 @@ export default class ApiHander {
 
   public static async getProjects(apiUrl: string) {
     try {
-      // Retrieve the token from localStorage
-      const token = localStorage.getItem("jwtToken");
-      if (!token) {
-        throw new Error("No user token found. Please log in.");
-      }
-
-      const response = await axios.get(apiUrl + "/projectsInfo", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await axios.get(apiUrl + "/projectsInfo");
 
       return response.data;
     } catch (error) {
-      console.error("Error fetching projects:", error);
+      console.error("Error fetching projects: ", error);
       Emitter.emit("appError", "Error fetching projects");
       return [];
+    }
+  }
+
+  public static async getPdf(apiUrl: string) {
+    try {
+      const response = await axios.get(`${apiUrl}/getPdf`, {
+        responseType: "blob", // Ensures the response is handled as a binary file
+      });
+
+      // Create a Blob object for the PDF
+      const pdfBlob = new Blob([response.data], { type: "application/pdf" });
+
+      // Create a URL for the Blob
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+
+      // Open the PDF in a new tab
+      window.open(pdfUrl, "_blank");
+
+      // Revoke the object URL after some time
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
+
+      Emitter.emit("appSuccess", "Helpfile popup opened");
+    } catch {
+      console.error("Error downloading the PDF");
+      Emitter.emit("appError", "Error downloading the PDF");
     }
   }
 
@@ -234,25 +248,28 @@ export default class ApiHander {
     // Pull next viable image from project db
     const image = await ApiHander.next(apiUrl, projectName, directoryPath);
     if (!image) {
+      Emitter.emit("appError", "No image retrieved from the server");
       return;
     }
 
     // Start image load into webgl scene as a texture
     webglExperience.resources.loadGtImageFromApi(image.imageBlob, image.blob);
 
-    // Set the image's name in the GUI and check if it changed
-    if (webglExperience.input.currentDashboardImageName) {
-      const newImageName = image.imageName;
-      if (webglExperience.input.previousDashboardImageName === newImageName) {
-        Emitter.emit(
-          "appWarning",
-          "No more unclaimed, loaded previously unfinished image"
-        );
-      }
-
-      webglExperience.input.currentDashboardImageName.innerText = newImageName;
-      webglExperience.input.previousDashboardImageName = newImageName;
+    // Set image name in EditorDashboard if reference is found, setting with elementId to save complicated ref passing
+    const imageNameLabel = document.getElementById("gtImageName");
+    if (imageNameLabel) {
+      imageNameLabel.innerText = image.imageName;
     }
+
+    // Check if we're loading the same image again (indicates no more unclaimed images)
+    const newImageName = image.imageName;
+    if (webglExperience.input.previousDashboardImageName === newImageName) {
+      Emitter.emit(
+        "appWarning",
+        "No more unclaimed, loaded previously unfinished image"
+      );
+    }
+    webglExperience.input.previousDashboardImageName = newImageName;
 
     // Note: Not revoking URL here since we may need it for downloading later
   }
@@ -275,18 +292,28 @@ export default class ApiHander {
     // Pull previous image from project db
     const image = await ApiHander.prev(apiUrl, projectName, directoryPath);
     if (!image) {
-      Emitter.emit("appError", "No image pulled from Server");
+      Emitter.emit(
+        "appError",
+        "No image retrieved from the server, previous image history might be empty"
+      );
       return;
     }
 
     // Start image load into webgl scene as a texture
     webglExperience.resources.loadGtImageFromApi(image.imageBlob, image.blob);
 
-    // Set the image's name in the GUI
-    if (webglExperience.input.currentDashboardImageName) {
-      webglExperience.input.currentDashboardImageName.innerText =
-        image.imageName;
+    // Set image name in EditorDashboard if reference is found, setting with elementId to save complicated ref passing
+    const imageNameLabel = document.getElementById("gtImageName");
+    if (imageNameLabel) {
+      imageNameLabel.innerText = image.imageName;
     }
+
+    // Check if we're loading the same image again
+    const newImageName = image.imageName;
+    if (webglExperience.input.previousDashboardImageName === newImageName) {
+      Emitter.emit("appWarning", "Previous image is the same as this image");
+    }
+    webglExperience.input.previousDashboardImageName = newImageName;
 
     // Note: Not revoking URL here since we need may it for downloading later
   }
@@ -315,8 +342,8 @@ export default class ApiHander {
         Emitter.emit("appError", "Failed to confirm GT data was saved");
         return;
       }
-    } catch (error) {
-      console.error("Error updating image data:", error);
+    } catch {
+      console.error("Error updating image data");
       Emitter.emit("appError", "Error saving GT data");
       return;
     }
@@ -355,8 +382,8 @@ export default class ApiHander {
       }
 
       return response.data.responses[0].fullTextAnnotation.text;
-    } catch (error) {
-      console.error("Error sending image to Vision API:", error);
+    } catch {
+      console.error("Error sending image to Vision API");
       Emitter.emit("appWarning", "Error sending image to Vision API");
       return null;
     }

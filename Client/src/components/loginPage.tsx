@@ -7,9 +7,14 @@ import DebugButton from "./subcomponents/DebugButton";
 import StartAppButton from "./subcomponents/StartAppButton";
 import LoginErrorLabel from "./subcomponents/LoginErrorLabel";
 import ProjectSelect from "./subcomponents/ProjectSelect";
+import { logTrackedEvent } from "../firebase/logTrackedEvent";
 
 export default defineComponent({
   props: {
+    sessionId: {
+      type: String as PropType<string>,
+      required: true,
+    },
     handleStartApp: {
       type: Function as PropType<() => void>,
       required: true,
@@ -33,6 +38,7 @@ export default defineComponent({
     const isStartButtonEnabled = ref<boolean>(true);
     const isDebugButtonEnabled = ref<boolean>(false);
     const didLoginFail = ref<boolean>(false);
+    const loginFailAnimationToggle = ref<boolean>(false);
 
     onMounted(async () => {
       isServerOnline.value = await ApiHandler.pingServer(apiUrl);
@@ -46,6 +52,8 @@ export default defineComponent({
 
     /* ---------------------------- Template handlers --------------------------- */
     const handleStartAppButtonClicked = async () => {
+      await logTrackedEvent(props.sessionId, "clicked start button");
+
       const isAuthenticated = await ApiHandler.login(
         apiUrl,
         username.value,
@@ -57,7 +65,7 @@ export default defineComponent({
       if (isAuthenticated) {
         props.handleStartApp();
       } else {
-        handleLoginError();
+        await handleLoginError();
       }
     };
 
@@ -65,8 +73,11 @@ export default defineComponent({
       console.log("debug button clicked");
     };
 
-    const handleLoginError = () => {
+    const handleLoginError = async () => {
+      await logTrackedEvent(props.sessionId, "failed login");
+
       didLoginFail.value = true;
+      loginFailAnimationToggle.value = !loginFailAnimationToggle.value;
 
       if (loginErrorLabelRef.value) {
         loginErrorLabelRef.value.classList.remove("animate-shake");
@@ -81,12 +92,13 @@ export default defineComponent({
       <article class="w-screen h-screen flex justify-center items-center">
         <section>
           <Transition
-            appear
+            appear={true}
+            css={true}
             enterFromClass="opacity-0 translate-y-4"
             enterToClass="opacity-100 translate-y-0"
-            enterActiveClass="duration-[500ms]"
+            enterActiveClass="transform-gpu transition-all duration-[500ms] ease-out"
           >
-            <div>
+            <div class="transform-gpu">
               {/* App logo */}
               <AppLogo />
 
@@ -117,20 +129,25 @@ export default defineComponent({
                   isServerOnline={isServerOnline.value}
                   handleStartAppButtonClicked={handleStartAppButtonClicked}
                 />
-                <LoginErrorLabel didLoginFail={didLoginFail.value} />
+                <LoginErrorLabel
+                  didLoginFail={didLoginFail.value}
+                  loginFailAnimationToggle={loginFailAnimationToggle.value}
+                />
               </div>
             </div>
           </Transition>
 
           {/* Project selection - container with fixed height */}
-          <div class="relative">
+          <div class="relative h-32">
             <Transition
+              appear={true}
+              css={true}
               enterFromClass="opacity-0 translate-y-4"
               enterToClass="opacity-100 translate-y-0"
-              enterActiveClass="duration-[500ms]"
+              enterActiveClass="transform-gpu transition-all duration-[500ms] ease-out"
             >
               {projectList.value.length !== 0 ? (
-                <div class="delay-[500ms] absolute top-0 left-0 right-0">
+                <div class="delay-[250ms] absolute top-0 left-0 right-0 transform-gpu">
                   <ProjectSelect
                     projectList={projectList.value}
                     setSelectedProjectName={(newSelectedProjectName: string) =>
