@@ -90,6 +90,28 @@ export default class ApiHander {
     }
   }
 
+  public static async isTokenValid(apiUrl: string) {
+    try {
+      // Retrieve the token from localStorage
+      const token = localStorage.getItem("jwtToken");
+      if (!token) {
+        throw new Error("No user token found. Please log in.");
+      }
+
+      await axios.get(apiUrl + "/protected", {
+        headers: {
+          Authorization: `Bearer ${token}`, // Include the token in the Authorization header
+          "Content-Type": "application/json", // Ensure content type is JSON
+        },
+      });
+
+      return true;
+    } catch {
+      console.error("User token not found or valid");
+      return false;
+    }
+  }
+
   public static async next(
     apiUrl: string,
     projectName: string,

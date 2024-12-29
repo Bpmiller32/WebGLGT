@@ -47,6 +47,9 @@ export default defineComponent({
       await submitToDb();
       gtSavedCount.value++;
     });
+    Emitter.on("appLoading", () => {
+      activateGroup(0);
+    });
     Emitter.on("gotoNextImage", async () => {
       await loadNextImage();
       activateGroup(0);

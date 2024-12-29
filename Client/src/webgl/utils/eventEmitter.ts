@@ -7,6 +7,7 @@ import mitt from "mitt";
 type EventMap = {
   // app state
   appReady: void;
+  appSuccess: string;
   appLoading: string;
   appWarning: string;
   appError: string;

@@ -240,11 +240,11 @@ export default class SelectionGroupManager {
 
         if (delimiterImage?.mesh) {
           // Reset scale to original size before calculating new scale
-          delimiterImage.mesh.scale.set(1, 1, 1);
+          delimiterImage.resetScale();
 
           // Find the largest dimensions among all croppedMeshes
           const maxDimensions = new THREE.Vector2(0, 0);
-          selectionGroups.forEach(group => {
+          selectionGroups.forEach((group) => {
             const bbox = new THREE.Box3().setFromObject(group.croppedMesh);
             const size = bbox.getSize(new THREE.Vector3());
             maxDimensions.x = Math.max(maxDimensions.x, size.x);
@@ -252,14 +252,16 @@ export default class SelectionGroupManager {
           });
 
           // Calculate scale factors to match the largest dimensions while maintaining aspect ratio
-          const delimiterBBox = new THREE.Box3().setFromObject(delimiterImage.mesh);
+          const delimiterBBox = new THREE.Box3().setFromObject(
+            delimiterImage.mesh
+          );
           const delimiterSize = delimiterBBox.getSize(new THREE.Vector3());
           const scaleX = maxDimensions.x / delimiterSize.x;
           const scaleY = maxDimensions.y / delimiterSize.y;
           const scale = Math.min(scaleX, scaleY);
-          
+
           // Apply the scale
-          delimiterImage.mesh.scale.set(scale, scale, 1);
+          delimiterImage.setScale(scale);
 
           // Recalculate height after scaling
           const newDelimiterHeight = delimiterSize.y * scale;

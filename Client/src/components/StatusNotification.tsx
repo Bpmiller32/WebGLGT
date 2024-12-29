@@ -12,6 +12,7 @@ export default defineComponent({
   setup() {
     /* ------------------------ Component state and setup ----------------------- */
     const isAlertEnabled = ref<boolean>(false);
+    const isAlertVisibilityExtended = ref<boolean>(false);
     const statusAlertText = ref<string | undefined>();
     const statusAlertColor = ref<
       "success" | "loading" | "warning" | "error" | undefined
@@ -53,7 +54,14 @@ export default defineComponent({
       updateAlert("Loading previous image....", "loading");
     });
     Emitter.on("loadedFromApi", () => {
-      isAlertEnabled.value = false;
+      // Force keep notifications up
+      setTimeout(
+        () => {
+          isAlertEnabled.value = false;
+          isAlertVisibilityExtended.value = false;
+        },
+        isAlertVisibilityExtended.value ? 2000 : 0
+      );
     });
     Emitter.on("stitchBoxes", () => {
       isAlertEnabled.value = false;
@@ -63,6 +71,11 @@ export default defineComponent({
     });
     Emitter.on("resetImage", () => {
       isAlertEnabled.value = false;
+    });
+    Emitter.on("appSuccess", (message: string) => {
+      isAlertVisibilityExtended.value = true;
+      updateAlert(message, "success");
+      toggleAlert();
     });
     Emitter.on("appLoading", (message: string) => {
       updateAlert(message, "loading");
@@ -89,6 +102,7 @@ export default defineComponent({
 
     const toggleAlert = () => {
       isAlertEnabled.value = false;
+
       setTimeout(() => {
         isAlertEnabled.value = true;
       }, 100);

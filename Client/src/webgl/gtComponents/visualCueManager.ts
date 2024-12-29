@@ -33,6 +33,9 @@ export default class VisualCueManager {
     this.world = this.experience.world;
 
     this.createVisualCueMesh();
+
+    // Fix for autoLoggingIn and visualCue being visible before ImageContainer has loaded, do it here on 1st construct only since CreateVisualCueMesh is called every time after
+    this.visualCueMesh.visible = false;
   }
 
   public createVisualCueMesh() {

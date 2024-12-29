@@ -82,6 +82,14 @@ export default class DelimiterImage {
     // this.imageRotation = this.convertRotation(this.mesh.rotation.z);
   }
 
+  public setScale(value: number) {
+    this.mesh?.scale.set(value, value, 1);
+  }
+
+  public resetScale() {
+    this.mesh?.scale.set(1, 1, 1);
+  }
+
   public resetPosition() {
     // Move mesh behind the camera for initial position
     this.mesh!.position.copy(this.initialPosition);

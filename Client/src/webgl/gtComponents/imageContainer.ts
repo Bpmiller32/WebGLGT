@@ -180,11 +180,6 @@ export default class ImageContainer {
     }
 
     if (this.isOriginalDownloadEnabled && this.resources.currentImageBlob) {
-      // Clean up any previous blob URL
-      if (this.resources.currentImageUrl) {
-        URL.revokeObjectURL(this.resources.currentImageUrl);
-      }
-
       // Create new blob URL for download
       const url = URL.createObjectURL(this.resources.currentImageBlob);
       const fullImageLink = document.createElement("a");
@@ -192,9 +187,6 @@ export default class ImageContainer {
       fullImageLink.href = url;
       fullImageLink.download = "originalImage.jpg";
       fullImageLink.click();
-
-      // Clean up after download
-      URL.revokeObjectURL(url);
     }
   }
 
@@ -330,6 +322,12 @@ export default class ImageContainer {
 
   /* ------------------------------ Tick methods ------------------------------ */
   public setNewImage() {
+    // Clean up previous image's object URL if it exists
+    if (this.resources.currentImageUrl) {
+      URL.revokeObjectURL(this.resources.currentImageUrl);
+      this.resources.currentImageUrl = undefined;
+    }
+
     this.image = this.resources.items.apiImage;
 
     this.setGeometry();
@@ -391,6 +389,12 @@ export default class ImageContainer {
   public destroy() {
     if (!this.mesh) {
       return;
+    }
+
+    // Clean up any remaining object URL
+    if (this.resources.currentImageUrl) {
+      URL.revokeObjectURL(this.resources.currentImageUrl);
+      this.resources.currentImageUrl = undefined;
     }
 
     // Mesh disposal
