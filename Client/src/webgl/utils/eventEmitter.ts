@@ -33,6 +33,7 @@ type EventMap = {
   loadedFromApi: void;
   loadedFromFile: void;
   fillInForm: void;
+  setEditorDashboard: { numberOfSelectionGroups: number; tags: string[] };
   gotoNextImage: void;
   gotoPrevImage: void;
 };

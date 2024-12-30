@@ -45,6 +45,29 @@ const handleStartApp = async () => {
     Emitter.emit("appLoading", "Loading....");
   }
 
+  // TODO: temporary until built into the Db in a settings entry
+  const projectName = localStorage.getItem("projectName");
+  if (projectName == "testTjx2") {
+    Emitter.emit("setEditorDashboard", {
+      numberOfSelectionGroups: 3,
+      tags: ["Vendor Only"],
+    });
+  }
+
+  if (projectName == "usps") {
+    Emitter.emit("setEditorDashboard", {
+      numberOfSelectionGroups: 1,
+      tags: ["RTS", "Form 3547", "FWD", "DBL Feed"],
+    });
+  }
+
+  if (projectName == "usps2") {
+    Emitter.emit("setEditorDashboard", {
+      numberOfSelectionGroups: 1,
+      tags: [],
+    });
+  }
+
   // Transition login page -> app page
   isAppStarted.value = !isAppStarted.value;
 
