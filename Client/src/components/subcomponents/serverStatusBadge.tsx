@@ -35,7 +35,7 @@ export default defineComponent({
     };
 
     return () => (
-      <span class="mb-2 inline-flex items-center gap-x-1.5 rounded-full px-2 py-1 text-xs font-medium text-gray-100 ring-1 ring-inset ring-gray-200">
+      <span class="mb-2 inline-flex items-center gap-x-1.5 rounded-full px-2 py-1 text-xs font-medium text-gray-100 ring-1 ring-inset ring-gray-200 cursor-default">
         {ServerStatusBadgeIcon()}
         Server status
       </span>

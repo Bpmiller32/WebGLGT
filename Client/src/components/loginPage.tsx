@@ -8,6 +8,7 @@ import StartAppButton from "./subcomponents/StartAppButton";
 import LoginErrorLabel from "./subcomponents/LoginErrorLabel";
 import ProjectSelect from "./subcomponents/ProjectSelect";
 import { logTrackedEvent } from "../firebase/logTrackedEvent";
+import AdminPanel from "./AdminPanel";
 
 export default defineComponent({
   props: {
@@ -26,17 +27,20 @@ export default defineComponent({
     const apiUrl = import.meta.env.VITE_NGROK_URL;
 
     // Template ref
-    const loginErrorLabelRef = ref<HTMLElement | null>(null);
-
     const username = ref<string>("");
     const password = ref<string>("");
 
     const projectList = ref<string[]>([]);
     const selectedProject = ref<string>("");
 
+    const isAdminOpen = ref<boolean>(false);
+
+    const appLogoClickCount = ref<number>(0);
     const isServerOnline = ref<boolean>(false);
+
     const isStartButtonEnabled = ref<boolean>(true);
-    const isDebugButtonEnabled = ref<boolean>(false);
+    const isDebugButtonEnabled = ref<boolean>(true);
+
     const didLoginFail = ref<boolean>(false);
     const loginFailAnimationToggle = ref<boolean>(false);
 
@@ -51,6 +55,15 @@ export default defineComponent({
     });
 
     /* ---------------------------- Template handlers --------------------------- */
+    const handleAppLogoClicked = () => {
+      if (appLogoClickCount.value >= 4) {
+        isDebugButtonEnabled.value = true;
+        return;
+      }
+
+      appLogoClickCount.value++;
+    };
+
     const handleStartAppButtonClicked = async () => {
       await logTrackedEvent(props.sessionId, "clicked start button");
 
@@ -69,8 +82,24 @@ export default defineComponent({
       }
     };
 
-    const handleDebugButtonClicked = () => {
-      console.log("debug button clicked");
+    const handleDebugButtonClicked = async () => {
+      // TODO: remove after debug
+      isAdminOpen.value = true;
+
+      const isAuthenticated = await ApiHandler.login(
+        apiUrl,
+        username.value,
+        password.value,
+        selectedProject.value,
+        selectedProject.value
+      );
+
+      if (isAuthenticated) {
+        didLoginFail.value = false;
+        isAdminOpen.value = true;
+      } else {
+        await handleLoginError();
+      }
     };
 
     const handleLoginError = async () => {
@@ -78,18 +107,18 @@ export default defineComponent({
 
       didLoginFail.value = true;
       loginFailAnimationToggle.value = !loginFailAnimationToggle.value;
-
-      if (loginErrorLabelRef.value) {
-        loginErrorLabelRef.value.classList.remove("animate-shake");
-        setTimeout(() => {
-          loginErrorLabelRef.value?.classList.add("animate-shake");
-        }, 100);
-      }
     };
 
     /* ----------------------------- Render Function ---------------------------- */
     return () => (
       <article class="w-screen h-screen flex justify-center items-center">
+        {/* Test */}
+        <AdminPanel
+          isOpen={isAdminOpen.value}
+          setIsOpen={(value: boolean) => (isAdminOpen.value = value)}
+          projectList={projectList.value}
+        />
+
         <section>
           <Transition
             appear={true}
@@ -100,7 +129,9 @@ export default defineComponent({
           >
             <div class="transform-gpu">
               {/* App logo */}
-              <AppLogo />
+              <div onClick={handleAppLogoClicked}>
+                <AppLogo />
+              </div>
 
               {/* Server status */}
 
@@ -119,15 +150,15 @@ export default defineComponent({
               />
 
               {/* Buttons and login feedback */}
-              <div class="grid grid-cols-3 justify-between mt-2">
+              <div class="grid grid-cols-3 justify-between items-center mt-2">
                 <DebugButton
-                  isDebugEnabled={isDebugButtonEnabled.value}
-                  handleDebugButtonClicked={handleDebugButtonClicked}
+                  isButtonEnabled={true}
+                  handleButtonClicked={handleDebugButtonClicked}
                 />
                 <StartAppButton
                   isButtonEnabled={isStartButtonEnabled.value}
                   isServerOnline={isServerOnline.value}
-                  handleStartAppButtonClicked={handleStartAppButtonClicked}
+                  handleButtonClicked={handleStartAppButtonClicked}
                 />
                 <LoginErrorLabel
                   didLoginFail={didLoginFail.value}
@@ -148,6 +179,9 @@ export default defineComponent({
             >
               {projectList.value.length !== 0 ? (
                 <div class="delay-[250ms] absolute top-0 left-0 right-0 transform-gpu">
+                  <label class="mt-8 mb-2 block text-sm/6 font-medium text-gray-100">
+                    Project Selection
+                  </label>
                   <ProjectSelect
                     projectList={projectList.value}
                     setSelectedProjectName={(newSelectedProjectName: string) =>

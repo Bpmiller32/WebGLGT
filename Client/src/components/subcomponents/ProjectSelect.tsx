@@ -42,22 +42,17 @@ export default defineComponent({
 
     return () => (
       <div>
-        <label class="mt-8 block text-sm/6 font-medium text-gray-100">
-          Project Selection
-        </label>
-        <div class="mt-2 grid grid-cols-1">
-          <select
-            value={selectedProject.value}
-            onChange={handleProjectChange}
-            class="col-start-1 row-start-1 w-full appearance-none rounded-md py-1.5 pl-3 pr-8 text-base outline outline-1 -outline-offset-1 bg-white text-gray-900 outline-gray-300 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
-          >
-            {projects.value.map((project) => (
-              <option key={project} value={project}>
-                {project}
-              </option>
-            ))}
-          </select>
-        </div>
+        <select
+          value={selectedProject.value}
+          onChange={handleProjectChange}
+          class="w-full cursor-pointer col-start-1 row-start-1 appearance-none rounded-md py-1.5 pl-3 pr-8 text-base outline outline-1 -outline-offset-1 bg-white text-gray-900 outline-gray-300 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
+        >
+          {projects.value.map((project) => (
+            <option key={project} value={project}>
+              {project}
+            </option>
+          ))}
+        </select>
       </div>
     );
   },
