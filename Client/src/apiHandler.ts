@@ -78,8 +78,9 @@ export default class ApiHander {
     apiUrl: string,
     username: string,
     password: string,
-    projectName: string,
-    directoryPath: string
+    autoLogin: boolean,
+    projectName?: string,
+    directoryPath?: string
   ) {
     try {
       const response = await axios.post(apiUrl + "/login", {
@@ -94,13 +95,115 @@ export default class ApiHander {
       localStorage.setItem("jwtToken", token);
 
       // Set based on option in ProjectSelect. Note: projectName and directoryPath must be the same, directoryPath folder must exist in IMAGES_PATH env variable in Server
-      localStorage.setItem("projectName", projectName);
-      localStorage.setItem("directoryPath", directoryPath);
+      if (projectName && directoryPath) {
+        localStorage.setItem("projectName", projectName);
+        localStorage.setItem("directoryPath", directoryPath);
+      }
+
+      if (autoLogin) {
+        localStorage.setItem("autoLogin", "true");
+      }
 
       return true;
     } catch {
       console.error("Login failed: incorrect username or password");
       return false;
+    }
+  }
+
+  public static async createImageDatabase(apiUrl: string, projectName: string) {
+    try {
+      // Retrieve the token from localStorage
+      const token = localStorage.getItem("jwtToken");
+      if (!token) {
+        throw new Error("No user token found. Please log in.");
+      }
+
+      // Make a POST request to the protected endpoint
+      const response = await axios.post(
+        apiUrl + "/createImageDatabase", // Endpoint
+        { projectName }, // Request body
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Include the token in the Authorization header
+            "Content-Type": "application/json", // Ensure content type is JSON
+          },
+        }
+      );
+
+      // Check for success in response
+      if (response.status == 200) {
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      console.error("Error creating a new project:", error);
+      return false;
+    }
+  }
+
+  public static async exportToCsv(apiUrl: string, projectName: string) {
+    try {
+      // Retrieve the token from localStorage
+      const token = localStorage.getItem("jwtToken");
+      if (!token) {
+        throw new Error("No user token found. Please log in.");
+      }
+
+      // Make a POST request to the protected endpoint
+      const response = await axios.post(
+        apiUrl + "/exportToCsv", // Endpoint
+        { projectName }, // Request body
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Include the token in the Authorization header
+            "Content-Type": "application/json", // Ensure content type is JSON
+          },
+        }
+      );
+
+      // Check for success in response
+      if (response.status == 200) {
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      console.error("Error exporting project:", error);
+      return false;
+    }
+  }
+
+  public static async getProjectStats(apiUrl: string, projectName: string) {
+    try {
+      // Retrieve the token from localStorage
+      const token = localStorage.getItem("jwtToken");
+      if (!token) {
+        throw new Error("No user token found. Please log in.");
+      }
+
+      // Make a POST request to the protected endpoint
+      const response = await axios.post(
+        apiUrl + "/getProjectStats", // Endpoint
+        { projectName }, // Request body
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Include the token in the Authorization header
+            "Content-Type": "application/json", // Ensure content type is JSON
+          },
+        }
+      );
+
+      // Check for success in response
+      if (response.status == 200) {
+        return response.data;
+      } else {
+        return null;
+      }
+    } catch (error) {
+      console.error("Error getting stats:", error);
+      return null;
     }
   }
 
@@ -112,6 +215,7 @@ export default class ApiHander {
         throw new Error("No user token found. Please log in.");
       }
 
+      // If the token is expired this endpoint will throw an error
       await axios.get(apiUrl + "/protected", {
         headers: {
           Authorization: `Bearer ${token}`, // Include the token in the Authorization header
@@ -171,8 +275,11 @@ export default class ApiHander {
         imageBlob: imageBlobUrl,
         blob: blob,
       };
-    } catch {
-      console.error("Could not navigate to or download the next image");
+    } catch (error) {
+      console.error(
+        "Could not navigate to or download the next image: ",
+        error
+      );
       Emitter.emit("appError", "Error getting next image");
       return null;
     }

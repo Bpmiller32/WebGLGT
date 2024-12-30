@@ -39,11 +39,13 @@ export default defineComponent({
       isHwImage: boolean;
       isBadImage: boolean;
       isVendorOnly: boolean;
+      isForm3547: boolean;
     }>({
       isMpImage: true, // Make this a default value
       isHwImage: false,
       isBadImage: false,
       isVendorOnly: false,
+      isForm3547: false,
     });
 
     // Icons for user buttons
@@ -83,6 +85,7 @@ export default defineComponent({
         isHwImage: false,
         isBadImage: true,
         isVendorOnly: false,
+        isForm3547: false,
       });
 
       await submitToDb();
@@ -163,6 +166,7 @@ export default defineComponent({
         isHwImage: false,
         isBadImage: false,
         isVendorOnly: false,
+        isForm3547: false,
       });
     };
 
@@ -175,6 +179,7 @@ export default defineComponent({
         isHwImage: false,
         isBadImage: false,
         isVendorOnly: false,
+        isForm3547: false,
       });
     };
 
@@ -292,6 +297,7 @@ export default defineComponent({
                     isHwImage: false,
                     isBadImage: false,
                     isVendorOnly: mailTypes.value.isVendorOnly,
+                    isForm3547: mailTypes.value.isForm3547,
                   });
                 }}
               />
@@ -306,6 +312,7 @@ export default defineComponent({
                     isHwImage: !mailTypes.value.isHwImage,
                     isBadImage: false,
                     isVendorOnly: mailTypes.value.isVendorOnly,
+                    isForm3547: mailTypes.value.isForm3547,
                   });
                 }}
               />
@@ -320,6 +327,7 @@ export default defineComponent({
                     isHwImage: false,
                     isBadImage: !mailTypes.value.isBadImage,
                     isVendorOnly: mailTypes.value.isVendorOnly,
+                    isForm3547: mailTypes.value.isForm3547,
                   });
                 }}
               />
@@ -350,12 +358,21 @@ export default defineComponent({
           <section class="flex justify-between items-center">
             <div class="flex gap-2">
               <MailTypeButton
-                buttonType="Vendor Only"
+                buttonType="RTS"
                 buttonVariable={mailTypes.value.isVendorOnly}
                 roundLeftCorner={true}
                 roundRightCorner={true}
                 handleClick={() =>
                   (mailTypes.value.isVendorOnly = !mailTypes.value.isVendorOnly)
+                }
+              />
+              <MailTypeButton
+                buttonType="Form 3547"
+                buttonVariable={mailTypes.value.isForm3547}
+                roundLeftCorner={true}
+                roundRightCorner={true}
+                handleClick={() =>
+                  (mailTypes.value.isForm3547 = !mailTypes.value.isForm3547)
                 }
               />
             </div>

@@ -74,6 +74,45 @@ app.post(
   })
 );
 
+/* ------------------------- Check if user is admin ------------------------- */
+app.post(
+  "/checkAdmin",
+  Utils.asyncHandler(async (req: Request, res: Response) => {
+    // Grab password from request
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).send("Missing username or password");
+    }
+
+    // Query Firestore for the user document by username (document ID)
+    const userDoc = await db.collection("users").doc(username).get();
+
+    if (!userDoc.exists) {
+      return res.status(401).send("Invalid username");
+    }
+
+    // Access the password field
+    const userData = userDoc.data();
+    const userPassword = userData?.password;
+
+    // Check the password, TODO: encrypt and compare with bcrypt once passwords are hashed in FireStore
+    if (password !== userPassword) {
+      return res.status(401).send("Invalid password");
+    }
+
+    // Check if user is admin
+    let isAdmin = false;
+    if (userData?.isAdmin) {
+      isAdmin = true;
+    }
+
+    // Update the lastLoggedInTime
+    await userDoc.ref.update({ lastLoggedInTime: new Date() });
+
+    return res.send({ isAdmin });
+  })
+);
+
 /* ---------------------------- Get projects info --------------------------- */
 app.get(
   "/projectsInfo",
@@ -440,92 +479,99 @@ app.get("/protected", (req: Request, res: Response) => {
 });
 
 /* ------------------------- Create a new project db ------------------------ */
-app.post("/createImageDatabase", async (req: Request, res: Response) => {
-  try {
-    // Grab project/db name from request
-    const { projectName, directoryPath } = req.body;
-    if (!projectName || typeof projectName !== "string") {
-      return res.status(400).json({ error: "Invalid or missing projectName" });
-    }
-    if (!directoryPath || typeof directoryPath !== "string") {
-      return res
-        .status(400)
-        .json({ error: "Invalid or missing directoryPath" });
-    }
-
-    // Construct the full path to the image
-    const imagePath = path.join(envVariables.IMAGES_PATH, directoryPath);
-
-    // Check if the image path exists on disk
-    if (!fs.existsSync(envVariables.IMAGES_PATH)) {
-      return res.status(404).send({ error: "Image path not found on disk" });
-    }
-
-    // Get files, filter out only image files
-    const imageFiles = await Utils.getImageFiles(imagePath);
-
-    // Reference Firestore collection
-    const collectionRef = db.collection(projectName);
-
-    let entryCount = 0;
-    let duplicateCount = 0;
-
-    for (const imageFile of imageFiles) {
-      // Check if a document with the same imageName already exists
-      const existingDocSnapshot = await collectionRef
-        .where("imageName", "==", imageFile)
-        .get();
-
-      // ImageDocument with the same fileName already exists in the collection, skip
-      if (!existingDocSnapshot.empty) {
-        duplicateCount++;
-        continue;
+app.post(
+  "/createImageDatabase",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      // Grab project/db name from request
+      const { projectName } = req.body;
+      if (!projectName || typeof projectName !== "string") {
+        return res
+          .status(400)
+          .json({ error: "Invalid or missing projectName" });
       }
 
-      // Create a document for each image
-      const docData: ImageDocument = {
-        imageName: imageFile,
-        imageType: "",
-        rotation: 0,
-        timeOnImage: 0,
-        groupText0: "",
-        groupCoordinates0: "",
-        groupText1: "",
-        groupCoordinates1: "",
-        groupText2: "",
-        groupCoordinates2: "",
-        assignedTo: null,
-        status: "unclaimed",
-        createdAt: new Date(),
-        claimedAt: null,
-        finishedAt: null,
-        project: projectName,
-      };
+      // Construct the full path to the image
+      const imagePath = path.join(envVariables.IMAGES_PATH, projectName);
 
-      // Add the document to Firestore
-      await collectionRef.add(docData);
-      entryCount++;
+      // Check if the image path exists on disk
+      if (!fs.existsSync(envVariables.IMAGES_PATH)) {
+        return res.status(404).send({ error: "Image path not found on disk" });
+      }
+
+      // Get files, filter out only image files
+      const imageFiles = await Utils.getImageFiles(imagePath);
+
+      // Reference Firestore collection
+      const collectionRef = db.collection(projectName);
+
+      // Check if the collection already has documents
+      const existingDocsSnapshot = await collectionRef.limit(1).get();
+      const collectionAlreadyExists = !existingDocsSnapshot.empty;
+
+      let entryCount = 0;
+      let duplicateCount = 0;
+
+      for (const imageFile of imageFiles) {
+        // Check if a document with the same imageName already exists
+        const existingDocSnapshot = await collectionRef
+          .where("imageName", "==", imageFile)
+          .get();
+
+        // ImageDocument with the same fileName already exists in the collection, skip
+        if (!existingDocSnapshot.empty) {
+          duplicateCount++;
+          continue;
+        }
+
+        // Create a document for each image
+        const docData: ImageDocument = {
+          imageName: imageFile,
+          imageType: "",
+          rotation: 0,
+          timeOnImage: 0,
+          groupText0: "",
+          groupCoordinates0: "",
+          groupText1: "",
+          groupCoordinates1: "",
+          groupText2: "",
+          groupCoordinates2: "",
+          assignedTo: null,
+          status: "unclaimed",
+          createdAt: new Date(),
+          claimedAt: null,
+          finishedAt: null,
+          project: projectName,
+        };
+
+        // Add the document to Firestore
+        await collectionRef.add(docData);
+        entryCount++;
+      }
+
+      // Only create Firestore index if the collection is new
+      if (!collectionAlreadyExists) {
+        await Utils.createFirestoreIndex("webglgt", projectName);
+      }
+
+      return res.status(200).json({
+        message: `Images added to database created for project: ${projectName}`,
+        entriesAdded: entryCount,
+        duplicates: duplicateCount,
+        collectionAlreadyExisted: collectionAlreadyExists,
+      });
+    } catch (error) {
+      return res.status(500).send(error);
     }
-
-    // Update and deploy index configuration file through Google Cloud, custom indexes needed for db and firestore cannot make them automatically or programmatically for some reason
-    await Utils.createFirestoreIndex("webglgt", projectName);
-
-    return res.status(200).json({
-      message: `New database created for project: ${projectName}`,
-      entriesAdded: entryCount,
-      duplicates: duplicateCount,
-    });
-  } catch (error) {
-    return res.status(500).send(error);
   }
-});
+);
 
 /* -------------------------- Export project to csv ------------------------- */
-app.post("/exportToCsv", async (req: Request, res: Response) => {
+app.post("/exportToCsv", requireAuth, async (req: Request, res: Response) => {
   try {
     // Get collection name from request
     const { projectName } = req.body;
-
     if (!projectName || typeof projectName !== "string") {
       return res
         .status(400)
@@ -570,6 +616,61 @@ app.post("/exportToCsv", async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Failed to export data to CSV" });
   }
 });
+
+/* -------------------------- Get stats on project -------------------------- */
+app.post(
+  "/getProjectStats",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    try {
+      // Extract projectName from the request body
+      const { projectName } = req.body;
+      if (!projectName || typeof projectName !== "string") {
+        return res
+          .status(400)
+          .json({ error: "Invalid or missing projectName" });
+      }
+
+      // Reference the Firestore collection
+      const collectionRef = db.collection(projectName);
+
+      // Get all documents in the collection
+      const snapshot = await collectionRef.get();
+
+      // Initialize counts
+      const totalDocuments = snapshot.size;
+      let completedDocuments = 0;
+      const userCounts: Record<string, number> = {};
+
+      // Iterate over each document in the collection
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+
+        // Count completed documents
+        if (data.status === "completed") {
+          completedDocuments++;
+
+          // Tally the "assignedTo" field only if status is "completed"
+          if (data.assignedTo && typeof data.assignedTo === "string") {
+            userCounts[data.assignedTo] =
+              (userCounts[data.assignedTo] || 0) + 1;
+          }
+        }
+      });
+
+      // Send the counts in the response
+      return res.status(200).json({
+        message: `Document count for project: ${projectName}`,
+        totalDocuments,
+        completedDocuments,
+        userCounts,
+      });
+    } catch (error) {
+      console.error("Error fetching project stats:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
 
 /* -------------------------------------------------------------------------- */
 /*                              Start the server                              */

@@ -18,8 +18,8 @@ const apiUrl = import.meta.env.VITE_NGROK_URL;
 const webglExperience = Experience.getInstance();
 
 onMounted(async () => {
-  // TODO: working, reenable on deploy
-  // Log site visit
+  // // TODO: working analytics, reenable on deploy
+  // // Log site visit
   // sessionId.value = await logSiteVisit();
 
   // Initialize the WebGL experience
@@ -61,9 +61,10 @@ const attemptAutoLogin = async () => {
   const token = localStorage.getItem("jwtToken");
   const projectName = localStorage.getItem("projectName");
   const directoryPath = localStorage.getItem("directoryPath");
+  const autoLogin = localStorage.getItem("autoLogin");
 
   // Missing any of elements from localStorage
-  if (!token || !projectName || !directoryPath) {
+  if (!token || !projectName || !directoryPath || !autoLogin) {
     return;
   }
 

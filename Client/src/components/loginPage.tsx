@@ -71,6 +71,7 @@ export default defineComponent({
         apiUrl,
         username.value,
         password.value,
+        true,
         selectedProject.value,
         selectedProject.value
       );
@@ -82,19 +83,15 @@ export default defineComponent({
       }
     };
 
-    const handleDebugButtonClicked = async () => {
-      // TODO: remove after debug
-      isAdminOpen.value = true;
-
-      const isAuthenticated = await ApiHandler.login(
+    const handleAdminButtonClicked = async () => {
+      const isAdmin = await ApiHandler.login(
         apiUrl,
         username.value,
         password.value,
-        selectedProject.value,
-        selectedProject.value
+        false
       );
 
-      if (isAuthenticated) {
+      if (isAdmin) {
         didLoginFail.value = false;
         isAdminOpen.value = true;
       } else {
@@ -153,7 +150,7 @@ export default defineComponent({
               <div class="grid grid-cols-3 justify-between items-center mt-2">
                 <DebugButton
                   isButtonEnabled={true}
-                  handleButtonClicked={handleDebugButtonClicked}
+                  handleButtonClicked={handleAdminButtonClicked}
                 />
                 <StartAppButton
                   isButtonEnabled={isStartButtonEnabled.value}
