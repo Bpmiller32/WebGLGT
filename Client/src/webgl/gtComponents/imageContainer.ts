@@ -52,7 +52,7 @@ export default class ImageContainer {
     // Debug
     if (this.experience.debug?.isActive) {
       this.debug = this.experience.debug;
-      debugImageContainer(this);
+      // debugImageContainer(this);
     }
   }
   private initializeFields() {
@@ -216,7 +216,7 @@ export default class ImageContainer {
   public mouseMove(event: MouseEvent) {
     // Do not continue if not in image adjust mode or regardless if you in IAM are but pressing right click (move over rotate)
     if (
-      !this.input.isShiftLeftPressed ||
+      !this.input.isKeyPressed("ShiftLeft") ||
       this.input.isRightClickPressed ||
       this.isRotationDisabled
     ) {

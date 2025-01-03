@@ -64,8 +64,8 @@ export default class ApiHander {
       // Open the PDF in a new tab
       window.open(pdfUrl, "_blank");
 
-      // Revoke the object URL after some time
-      setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
+      // Revoke the object URL after some time, 10s seems like enough time to turn off popup blocker right?
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 10000);
 
       Emitter.emit("appSuccess", "Helpfile popup opened");
     } catch {

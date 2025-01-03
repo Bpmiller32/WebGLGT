@@ -9,7 +9,7 @@ import Input from "../utils/input";
 import World from "../levels/world";
 import { CSG } from "three-csg-ts";
 import Debug from "../utils/debug";
-import { debugSelectionGroupManager } from "../utils/debug/debugClipBox";
+import { debugSelectionGroupManager } from "../utils/debug/debugSelectionGroupManager";
 import GtUtils from "../utils/gtUtils";
 
 export default class SelectionGroupManager {
@@ -57,7 +57,7 @@ export default class SelectionGroupManager {
     // Debug
     if (this.experience.debug?.isActive) {
       this.debug = this.experience.debug;
-      debugSelectionGroupManager(this);
+      // debugSelectionGroupManager(this);
     }
   }
 
@@ -94,7 +94,7 @@ export default class SelectionGroupManager {
     if (
       GtUtils.isInteractingWithGUI(event) ||
       event.button !== 0 ||
-      this.input.isShiftLeftPressed ||
+      this.input.isKeyPressed("ShiftLeft") ||
       this.areSelectionGroupsJoined
     ) {
       return;
@@ -129,7 +129,10 @@ export default class SelectionGroupManager {
 
   public mouseMove(event: MouseEvent): void {
     // MoveEvent 1: Handle rotating of all existing clipBoxes when in move mode
-    if (this.input.isShiftLeftPressed && !this.input.isRightClickPressed) {
+    if (
+      this.input.isKeyPressed("ShiftLeft") &&
+      !this.input.isRightClickPressed
+    ) {
       this.rotateAllSelectionGroups();
       return;
     }

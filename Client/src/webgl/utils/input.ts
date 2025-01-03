@@ -4,96 +4,95 @@
 
 import Emitter from "./eventEmitter";
 
-type Key = {
-  keyCode: string;
-  isPressed: (arg0: boolean) => void;
+const KEY_EVENT_MAP: {
+  [keyCode: string]: { onDown?: () => void; onUp?: () => void };
+} = {
+  KeyW: {},
+  KeyA: {},
+  KeyS: {},
+  KeyD: {},
+
+  KeyQ: {},
+  KeyE: {},
+
+  Backquote: {},
+
+  // Number keys
+  Digit1: {},
+  Digit2: {},
+  Digit3: {},
+
+  // Function keys
+  F1: { onDown: () => Emitter.emit("changeSelectionGroup", 0) },
+  F2: { onDown: () => Emitter.emit("changeSelectionGroup", 1) },
+  F3: { onDown: () => Emitter.emit("changeSelectionGroup", 2) },
+  F4: {
+    onDown: () => {
+      Emitter.emit("stitchBoxes");
+      Emitter.emit("screenshotImage");
+    },
+  },
+  F5: {
+    onDown: () => {
+      Emitter.emit("fillInForm");
+      Emitter.emit("gotoNextImage");
+    },
+  },
+  F6: {
+    onDown: () => {
+      Emitter.emit("badImage");
+      Emitter.emit("gotoNextImage");
+    },
+  },
+  F7: {},
+  F8: {},
+  F9: {},
+  F10: {
+    onDown: () => Emitter.emit("switchCamera"),
+  },
+
+  // Modifier keys
+  ControlLeft: {},
+  ShiftLeft: {
+    onDown: () => Emitter.emit("lockPointer", true),
+    onUp: () => Emitter.emit("lockPointer", false),
+  },
+  Space: {},
+
+  // Arrow keys
+  ArrowUp: {},
+  ArrowDown: {},
+  ArrowLeft: {},
+  ArrowRight: {},
 };
 
 export default class Input {
-  public isWKeyPressed: boolean;
-  public isAKeyPressed: boolean;
-  public isSKeyPressed: boolean;
-  public isDKeyPressed: boolean;
-  public isQKeyPressed: boolean;
-  public isEKeyPressed: boolean;
+  // Track the pressed state of any key. True if pressed, false if not. Using a simple index signature here to store states by event.code.
+  public keyStates: { [keyCode: string]: boolean } = {};
 
-  public isBackquotePressed: boolean;
+  // Mouse pressed states
+  public isLeftClickPressed = false;
+  public isRightClickPressed = false;
+  public isMouseBackPressed = false;
+  public isMouseForwardPressed = false;
 
-  public is1KeyPressed: boolean;
-  public is2KeyPressed: boolean;
-  public is3KeyPressed: boolean;
-
-  public isF1KeyPressed: boolean;
-  public isF2KeyPressed: boolean;
-  public isF3KeyPressed: boolean;
-
-  public isF7KeyPressed: boolean;
-  public isF8KeyPressed: boolean;
-  public isF9KeyPressed: boolean;
-  public isF10KeyPressed: boolean;
-
-  public isControlLeftPressed: boolean;
-  public isSpacePressed: boolean;
-  public isShiftLeftPressed: boolean;
-
-  public isArrowUpPressed: boolean;
-  public isArrowDownPressed: boolean;
-  public isArrowLeftPressed: boolean;
-  public isArrowRightPressed: boolean;
-
-  public isLeftClickPressed: boolean;
-  public isRightClickPressed: boolean;
-  public isMouseBackPressed: boolean;
-  public isMouseForwardPressed: boolean;
-
+  // References to DOM elements
   public dashboardGuiGlobal: HTMLElement | null;
   public loginGuiGlobal: HTMLElement | null;
-
   public dashboardTextarea0: HTMLTextAreaElement | null;
   public dashboardTextarea1: HTMLTextAreaElement | null;
   public dashboardTextarea2: HTMLTextAreaElement | null;
+
   public currentDashboardImageName: string | null;
   public previousDashboardImageName: string | null;
 
-  public keys: Key[];
-
   constructor() {
-    this.isWKeyPressed = false;
-    this.isAKeyPressed = false;
-    this.isSKeyPressed = false;
-    this.isDKeyPressed = false;
-    this.isQKeyPressed = false;
-    this.isEKeyPressed = false;
+    // Initialize keyStates to false for each known key in KEY_DEFINITIONS
+    for (const code in KEY_EVENT_MAP) {
+      this.keyStates[code] = false;
+    }
 
-    this.isBackquotePressed = false;
-
-    this.is1KeyPressed = false;
-    this.is2KeyPressed = false;
-    this.is3KeyPressed = false;
-
-    this.isF1KeyPressed = false;
-    this.isF2KeyPressed = false;
-    this.isF3KeyPressed = false;
-
-    this.isF7KeyPressed = false;
-    this.isF8KeyPressed = false;
-    this.isF9KeyPressed = false;
-    this.isF10KeyPressed = false;
-
-    this.isControlLeftPressed = false;
-    this.isSpacePressed = false;
-    this.isShiftLeftPressed = false;
-
-    this.isArrowUpPressed = false;
-    this.isArrowDownPressed = false;
-    this.isArrowLeftPressed = false;
-    this.isArrowRightPressed = false;
-
-    this.isLeftClickPressed = false;
-    this.isRightClickPressed = false;
-    this.isMouseBackPressed = false;
-    this.isMouseForwardPressed = false;
-
+    // Grab references to DOM elements
     this.dashboardGuiGlobal = document.getElementById("gui");
     this.loginGuiGlobal = document.getElementById("loginPage");
 
@@ -110,335 +109,140 @@ export default class Input {
     this.currentDashboardImageName = "";
     this.previousDashboardImageName = "";
 
-    /* ------------------------------- Define keys ------------------------------ */
-    this.keys = [
-      // FPS keys
-      {
-        keyCode: "KeyW",
-        isPressed: (eventResult: boolean) => {
-          this.isWKeyPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "KeyA",
-        isPressed: (eventResult: boolean) => {
-          this.isAKeyPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "KeyS",
-        isPressed: (eventResult: boolean) => {
-          this.isSKeyPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "KeyD",
-        isPressed: (eventResult: boolean) => {
-          this.isDKeyPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "KeyQ",
-        isPressed: (eventResult: boolean) => {
-          this.isQKeyPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "KeyE",
-        isPressed: (eventResult: boolean) => {
-          this.isEKeyPressed = eventResult;
-        },
-      },
+    // Events
+    window.addEventListener("keydown", this.handleKeyDown, false);
+    window.addEventListener("keyup", this.handleKeyUp, false);
 
-      // Backquote
-      {
-        keyCode: "Backquote",
-        isPressed: (eventResult: boolean) => {
-          if (eventResult) {
-            Emitter.emit("badImage");
-          }
+    window.addEventListener("mousedown", this.handleMouseDown);
+    window.addEventListener("mousemove", this.handleMouseMove);
+    window.addEventListener("mouseup", this.handleMouseUp);
 
-          this.isBackquotePressed = eventResult;
-        },
-      },
-
-      // Number keys
-      {
-        keyCode: "Digit1",
-        isPressed: (eventResult: boolean) => {
-          if (eventResult) {
-            Emitter.emit("changeSelectionGroup", 0);
-          }
-
-          this.is1KeyPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "Digit2",
-        isPressed: (eventResult: boolean) => {
-          if (eventResult) {
-            Emitter.emit("changeSelectionGroup", 1);
-          }
-
-          this.is2KeyPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "Digit3",
-        isPressed: (eventResult: boolean) => {
-          if (eventResult) {
-            Emitter.emit("changeSelectionGroup", 2);
-          }
-
-          this.is3KeyPressed = eventResult;
-        },
-      },
-
-      // Function keys
-      {
-        keyCode: "F1",
-        isPressed: (eventResult: boolean) => {
-          if (eventResult) {
-            Emitter.emit("stitchBoxes");
-            Emitter.emit("screenshotImage");
-          }
-
-          this.isF1KeyPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "F2",
-        isPressed: (eventResult: boolean) => {
-          if (eventResult) {
-            Emitter.emit("fillInForm");
-          }
-
-          this.isF2KeyPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "F3",
-        isPressed: (eventResult: boolean) => {
-          if (eventResult) {
-            Emitter.emit("gotoNextImage");
-          }
-
-          this.isF3KeyPressed = eventResult;
-        },
-      },
-
-      {
-        keyCode: "F7",
-        isPressed: (eventResult: boolean) => {
-          if (eventResult) {
-            Emitter.emit("stitchBoxes");
-          }
-
-          this.isF7KeyPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "F8",
-        isPressed: (eventResult: boolean) => {
-          if (eventResult) {
-            Emitter.emit("screenshotImage");
-          }
-
-          this.isF8KeyPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "F9",
-        isPressed: (eventResult: boolean) => {
-          if (eventResult) {
-            // Emitter.emit("resetImage");
-            // TODO: remove after debug
-            // Emitter.emit("test");
-          }
-
-          this.isF9KeyPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "F10",
-        isPressed: (eventResult: boolean) => {
-          if (eventResult) {
-            Emitter.emit("switchCamera");
-          }
-
-          this.isF10KeyPressed = eventResult;
-        },
-      },
-
-      // Modifier keys
-      {
-        keyCode: "Space",
-        isPressed: (eventResult: boolean) => {
-          this.isSpacePressed = eventResult;
-        },
-      },
-      {
-        keyCode: "ControlLeft",
-        isPressed: (eventResult: boolean) => {
-          this.isControlLeftPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "ShiftLeft",
-        isPressed: (eventResult: boolean) => {
-          Emitter.emit("lockPointer", eventResult);
-
-          this.isShiftLeftPressed = eventResult;
-        },
-      },
-
-      // Arrow keys
-      {
-        keyCode: "ArrowUp",
-        isPressed: (eventResult: boolean) => {
-          // if (eventResult) {
-          //   Emitter.emit("fillInForm");
-          // }
-
-          this.isArrowUpPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "ArrowDown",
-        isPressed: (eventResult: boolean) => {
-          // if (eventResult) {
-          //   Emitter.emit("stitchBoxes");
-          //   Emitter.emit("screenshotImage");
-          // }
-
-          this.isArrowUpPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "ArrowLeft",
-        isPressed: (eventResult: boolean) => {
-          // if (eventResult) {
-          //   Emitter.emit("resetImage");
-          // }
-
-          this.isArrowLeftPressed = eventResult;
-        },
-      },
-      {
-        keyCode: "ArrowRight",
-        isPressed: (eventResult: boolean) => {
-          // if (eventResult) {
-          //   Emitter.emit("gotoNextImage");
-          // }
-
-          this.isArrowRightPressed = eventResult;
-        },
-      },
-    ];
-
-    /* ------------------------------ Event methods ----------------------------- */
-    // Keyboard events
-    window.addEventListener(
-      "keydown",
-      (event: KeyboardEvent) => {
-        for (const keyIndex in this.keys) {
-          if (event.code === this.keys[keyIndex].keyCode) {
-            this.keys[keyIndex].isPressed(true);
-          }
-        }
-      },
-      false
-    );
-
-    window.addEventListener(
-      "keyup",
-      (event: KeyboardEvent) => {
-        for (const keyIndex in this.keys) {
-          if (event.code === this.keys[keyIndex].keyCode) {
-            this.keys[keyIndex].isPressed(false);
-          }
-        }
-      },
-      false
-    );
-
-    // Mouse events
-    window.addEventListener("mousedown", (event) => {
-      if (event.button === 1) {
-        this.isLeftClickPressed = true;
-      }
-      if (event.button === 2) {
-        this.isRightClickPressed = true;
-      }
-      if (event.button === 3) {
-        this.isMouseBackPressed = true;
-      }
-      if (event.button === 4) {
-        this.isMouseForwardPressed = true;
-      }
-
-      Emitter.emit("mouseDown", event);
+    // Let mouse wheel be partially passive for performance, but also set a global wheel listener to selectively prevent scrolling outside of textareas.
+    window.addEventListener("wheel", this.handleWheel, { passive: true });
+    window.addEventListener("wheel", this.handleGlobalWheel, {
+      passive: false,
     });
 
-    window.addEventListener("mousemove", (event) => {
-      Emitter.emit("mouseMove", event);
-    });
-
-    window.addEventListener("mouseup", (event) => {
-      if (event.button === 1) {
-        this.isLeftClickPressed = false;
-      }
-      if (event.button === 2) {
-        this.isRightClickPressed = false;
-      }
-      if (event.button === 3) {
-        this.isMouseBackPressed = false;
-      }
-      if (event.button === 4) {
-        this.isMouseForwardPressed = false;
-      }
-
-      Emitter.emit("mouseUp", event);
-    });
-
-    window.addEventListener("wheel", (event) => {
-      Emitter.emit("mouseWheel", event);
-    });
-
-    // Window events
-    // Disable the browser's context menu (enables prefered right click behavior)
-    window.addEventListener("contextmenu", (event) => {
-      event.preventDefault();
-    });
-
-    // Prevent the window scrolling down when using mouse wheel
-    window.addEventListener(
-      "wheel",
-      (event) => {
-        // Check if the event target is an HTMLTextAreaElement in the gui
-        if (event.target instanceof HTMLTextAreaElement) {
-          // Allow scrolling inside the textarea
-          return;
-        }
-
-        event.preventDefault();
-      },
-      {
-        passive: false,
-      }
-    );
+    // Disable context menu for custom right-click behavior
+    window.addEventListener("contextmenu", this.handleContextMenu);
   }
+
+  /* -------------------------------------------------------------------------- */
+  /*                               Event Handlers                               */
+  /* -------------------------------------------------------------------------- */
+
+  private handleKeyDown = (event: KeyboardEvent) => {
+    // If it's a key we don't care about, ignore
+    const keyDef = KEY_EVENT_MAP[event.code];
+    if (!keyDef) {
+      return;
+    }
+
+    // Mark as pressed
+    this.keyStates[event.code] = true;
+    // Call any "down" function
+    keyDef.onDown?.();
+  };
+
+  private handleKeyUp = (event: KeyboardEvent) => {
+    // If it's a key we don't care about, ignore
+    const keyDef = KEY_EVENT_MAP[event.code];
+    if (!keyDef) {
+      return;
+    }
+
+    // Mark as not pressed
+    this.keyStates[event.code] = false;
+    // Call any "up" function
+    keyDef.onUp?.();
+  };
+
+  private handleMouseDown = (event: MouseEvent) => {
+    // Mouse button codes: 0 => left, 1 => middle, 2 => right, 3 => back, 4 => forward
+    switch (event.button) {
+      case 0:
+        this.isLeftClickPressed = true;
+        break;
+      case 2:
+        this.isRightClickPressed = true;
+        break;
+      case 3:
+        this.isMouseBackPressed = true;
+        break;
+      case 4:
+        this.isMouseForwardPressed = true;
+        break;
+      default:
+        break;
+    }
+
+    Emitter.emit("mouseDown", event);
+  };
+
+  private handleMouseMove = (event: MouseEvent) => {
+    Emitter.emit("mouseMove", event);
+  };
+
+  private handleMouseUp = (event: MouseEvent) => {
+    switch (event.button) {
+      case 0:
+        this.isLeftClickPressed = false;
+        break;
+      case 2:
+        this.isRightClickPressed = false;
+        break;
+      case 3:
+        this.isMouseBackPressed = false;
+        break;
+      case 4:
+        this.isMouseForwardPressed = false;
+        break;
+      default:
+        break;
+    }
+
+    Emitter.emit("mouseUp", event);
+  };
+
+  private handleWheel = (event: WheelEvent) => {
+    Emitter.emit("mouseWheel", event);
+  };
+
+  private handleContextMenu = (event: MouseEvent) => {
+    event.preventDefault();
+  };
+
+  // Prevent default scrolling on wheel if it’s not within a textarea
+  private handleGlobalWheel = (event: WheelEvent) => {
+    // Allow scrolling inside the textarea
+    if (event.target instanceof HTMLTextAreaElement) {
+      return;
+    }
+
+    event.preventDefault();
+  };
 
   /* ------------------------------ Tick methods ------------------------------ */
   public destroy() {
-    window.addEventListener("keydown", () => {});
-    window.addEventListener("keyup", () => {});
+    // Properly remove all the event listeners
+    window.removeEventListener("keydown", this.handleKeyDown, false);
+    window.removeEventListener("keyup", this.handleKeyUp, false);
 
-    window.addEventListener("mousedown", () => {});
-    window.addEventListener("mousemove", () => {});
-    window.addEventListener("mouseup", () => {});
-    window.addEventListener("wheel", () => {});
+    window.removeEventListener("mousedown", this.handleMouseDown);
+    window.removeEventListener("mousemove", this.handleMouseMove);
+    window.removeEventListener("mouseup", this.handleMouseUp);
+    window.removeEventListener("wheel", this.handleWheel);
+    window.removeEventListener("wheel", this.handleGlobalWheel);
 
-    window.addEventListener("contextmenu", () => {});
+    window.removeEventListener("contextmenu", this.handleContextMenu);
+  }
+
+  public isKeyPressed(code: string) {
+    // Check if the key exists in keyStates and is pressed
+    if (this.keyStates[code] === true) {
+      return true;
+    } else {
+      return false;
+    }
   }
 }

@@ -108,13 +108,13 @@ export default defineComponent({
       activateGroup(0);
     });
     Emitter.on("badImage", async () => {
-      Object.assign(textClassificationTags.value, {
-        isMpImage: false,
-        isHwImage: false,
-        isBadImage: true,
-        isVendorOnly: false,
-        isForm3547: false,
-      });
+      for (const tag of textClassificationTags.value) {
+        if (tag.type === "Bad") {
+          tag.active = true;
+        } else {
+          tag.active = false;
+        }
+      }
 
       await submitToDb();
       gtSavedCount.value++;
@@ -189,26 +189,26 @@ export default defineComponent({
       await ApiHandler.handleNextImage(apiUrl, props.webglExperience);
       activateGroup(0);
 
-      Object.assign(textClassificationTags.value, {
-        isMpImage: true,
-        isHwImage: false,
-        isBadImage: false,
-        isVendorOnly: false,
-        isForm3547: false,
-      });
+      for (const tag of textClassificationTags.value) {
+        if (tag.type === "MP") {
+          tag.active = true;
+        } else {
+          tag.active = false;
+        }
+      }
     };
 
     const loadPrevImage = async () => {
       await ApiHandler.handlePrevImage(apiUrl, props.webglExperience);
       activateGroup(0);
 
-      Object.assign(textClassificationTags.value, {
-        isMpImage: true,
-        isHwImage: false,
-        isBadImage: false,
-        isVendorOnly: false,
-        isForm3547: false,
-      });
+      for (const tag of textClassificationTags.value) {
+        if (tag.type === "MP") {
+          tag.active = true;
+        } else {
+          tag.active = false;
+        }
+      }
     };
 
     /* ----------------------------- Render function ---------------------------- */

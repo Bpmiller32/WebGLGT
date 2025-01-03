@@ -64,7 +64,7 @@ export default class VisualCueManager {
     if (
       GtUtils.isInteractingWithGUI(event) ||
       event.button !== 0 ||
-      this.input.isShiftLeftPressed ||
+      this.input.isKeyPressed("ShiftLeft") ||
       this.world.selectionGroupManager?.areSelectionGroupsJoined
     ) {
       return;
