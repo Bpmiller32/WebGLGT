@@ -14,10 +14,10 @@ export const debugImageContainer = (imageContainer: ImageContainer) => {
     ?.add(imageContainer.stopwatch, "elapsedTime")
     .name("time on image")
     .listen();
-  imageContainerDebug
-    ?.add(imageContainer.input, "isShiftLeftPressed")
-    .name("image adjust mode")
-    .listen();
+  // imageContainerDebug
+  //   ?.add(imageContainer.input, "isShiftLeftPressed")
+  //   .name("image adjust mode")
+  //   .listen();
   imageContainerDebug
     ?.add(imageContainer, "imageRotation")
     .name("image rotation")

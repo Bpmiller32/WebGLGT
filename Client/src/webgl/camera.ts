@@ -9,7 +9,7 @@ import Sizes from "./utils/sizes";
 import Time from "./utils/time";
 import Input from "./utils/input";
 import Debug from "./utils/debug";
-import { debugCamera } from "./utils/debug/debugCamera";
+import { debugCamera, debugCameraControls } from "./utils/debug/debugCamera";
 
 // Add constants for configuration
 const CAMERA_DEFAULTS = {
@@ -36,7 +36,7 @@ export default class Camera {
   private scene: THREE.Scene;
   private sizes: Sizes;
   private time: Time;
-  private input: Input;
+  public input: Input;
   public debug?: Debug;
 
   public instance!: THREE.Camera;
@@ -49,14 +49,6 @@ export default class Camera {
   private sensitivityMovement: number;
   private sensitivityZoom: number;
   private maximumZoomLevel: number;
-
-  private readonly eventHandlers: {
-    mouseDown: (event: MouseEvent) => void;
-    mouseMove: (event: MouseEvent) => void;
-    mouseUp: (event: MouseEvent) => void;
-    mouseWheel: (event: WheelEvent) => void;
-    switchCamera: () => void;
-  };
 
   constructor() {
     // Experience fields
@@ -74,14 +66,6 @@ export default class Camera {
     this.maximumZoomLevel = CAMERA_DEFAULTS.ZOOM.MAX;
     this.cameraType = "orthographic";
 
-    // Bind event handlers to preserve context
-    this.eventHandlers = {
-      mouseDown: this.mouseDown.bind(this),
-      mouseMove: this.mouseMove.bind(this),
-      mouseUp: this.mouseUp.bind(this),
-      mouseWheel: this.mouseWheel.bind(this),
-      switchCamera: this.switchCamera.bind(this),
-    };
     // Events
     Emitter.on("mouseDown", (event) => {
       this.mouseDown(event);
@@ -105,14 +89,13 @@ export default class Camera {
   /* ---------------------- Instance methods and controls --------------------- */
   private initializeCameras() {
     this.setOrthographicInstance();
+    this.instance = this.orthographicCamera;
 
     if (this.experience.debug?.isActive) {
       this.debug = this.experience.debug;
       this.setPerspectiveInstance();
-      // debugCamera(this);
+      debugCamera(this);
     }
-
-    this.instance = this.orthographicCamera;
   }
 
   private setOrthographicInstance() {
@@ -145,40 +128,6 @@ export default class Camera {
 
     this.perspectiveCamera.position.z = 10;
     this.scene.add(this.perspectiveCamera);
-  }
-
-  private debugCameraControls() {
-    // Move forward/back
-    if (this.input.isWKeyPressed) {
-      this.instance.translateZ(-0.03);
-    }
-    if (this.input.isSKeyPressed) {
-      this.instance.translateZ(0.03);
-    }
-
-    // Strafe left/right
-    if (this.input.isAKeyPressed) {
-      this.instance.translateX(-0.03);
-    }
-    if (this.input.isDKeyPressed) {
-      this.instance.translateX(0.03);
-    }
-
-    // Rotate left/right
-    if (this.input.isQKeyPressed) {
-      this.instance.rotation.y += 0.03;
-    }
-    if (this.input.isEKeyPressed) {
-      this.instance.rotation.y -= 0.03;
-    }
-
-    // Height
-    if (this.input.isSpacePressed) {
-      this.instance.translateY(0.03);
-    }
-    if (this.input.isControlLeftPressed) {
-      this.instance.translateY(-0.03);
-    }
   }
 
   /* ------------------------------ Event methods ----------------------------- */
@@ -272,7 +221,7 @@ export default class Camera {
 
   public update() {
     if (!(this.instance instanceof THREE.OrthographicCamera)) {
-      this.debugCameraControls();
+      debugCameraControls(this);
 
       return;
     }

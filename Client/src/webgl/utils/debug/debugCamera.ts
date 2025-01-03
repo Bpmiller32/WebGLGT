@@ -26,3 +26,42 @@ export const debugCamera = (camera: Camera) => {
     cameraDebug?.add(camera.instance, "zoom").name("zoom").step(0.01).listen();
   }
 };
+
+export const debugCameraControls = (camera: Camera) => {
+  if (!camera.instance) {
+    console.error("Camera instance is not initialized for controls.");
+    return;
+  }
+
+  // Move forward/back
+  if (camera.input.isKeyPressed("KeyW")) {
+    camera.instance.translateZ(-0.03);
+  }
+  if (camera.input.isKeyPressed("KeyS")) {
+    camera.instance.translateZ(0.03);
+  }
+
+  // Strafe left/right
+  if (camera.input.isKeyPressed("KeyA")) {
+    camera.instance.translateX(-0.03);
+  }
+  if (camera.input.isKeyPressed("KeyD")) {
+    camera.instance.translateX(0.03);
+  }
+
+  // Rotate left/right
+  if (camera.input.isKeyPressed("KeyQ")) {
+    camera.instance.rotation.y += 0.03;
+  }
+  if (camera.input.isKeyPressed("KeyE")) {
+    camera.instance.rotation.y -= 0.03;
+  }
+
+  // Height
+  if (camera.input.isKeyPressed("Space")) {
+    camera.instance.translateY(0.03);
+  }
+  if (camera.input.isKeyPressed("ControlLeft")) {
+    camera.instance.translateY(-0.03);
+  }
+};

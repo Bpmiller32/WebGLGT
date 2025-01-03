@@ -52,7 +52,7 @@ export default class ImageContainer {
     // Debug
     if (this.experience.debug?.isActive) {
       this.debug = this.experience.debug;
-      // debugImageContainer(this);
+      debugImageContainer(this);
     }
   }
   private initializeFields() {

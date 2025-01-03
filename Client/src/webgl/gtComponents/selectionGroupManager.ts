@@ -57,7 +57,7 @@ export default class SelectionGroupManager {
     // Debug
     if (this.experience.debug?.isActive) {
       this.debug = this.experience.debug;
-      // debugSelectionGroupManager(this);
+      debugSelectionGroupManager(this);
     }
   }
 

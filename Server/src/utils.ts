@@ -3,15 +3,16 @@ import fs from "fs/promises";
 import path from "path";
 import { google } from "googleapis";
 import { envVariables } from "./envConfig";
+import { db } from "./firebaseAdmin";
 
 export default class Utils {
   // Reads and validates the presence of an image file, returns its Base64 encoded string.
   public static readImageAsBase64 = async (imagePath: string) => {
     try {
-      const imageBuffer = await fs.readFile(imagePath);
-      return imageBuffer.toString("base64");
+      // Directly specify base64 encoding
+      return await fs.readFile(imagePath, { encoding: "base64" });
     } catch (error) {
-      throw new Error("Image not found on disk");
+      throw new Error(`Image not found or unreadable at path: ${imagePath}`);
     }
   };
 
@@ -27,10 +28,14 @@ export default class Utils {
       throw new Error("No token provided");
     }
 
-    const token = authHeader.split(" ")[1];
-
-    if (!token) {
+    const parts = authHeader.split(" ");
+    if (parts.length !== 2) {
       throw new Error("Invalid authorization format");
+    }
+
+    const token = parts[1];
+    if (!token) {
+      throw new Error("No token found in authorization header");
     }
 
     return token;
@@ -46,7 +51,7 @@ export default class Utils {
         imageExtensions.includes(path.extname(file).toLowerCase())
       );
     } catch (error) {
-      throw new Error("Failed to read image directory");
+      throw new Error(`Failed to read image directory: ${directoryPath}`);
     }
   };
 
@@ -105,5 +110,53 @@ export default class Utils {
     } catch (error: any) {
       throw new Error("Failed to create Firestore index");
     }
+  };
+
+  // Verifies user credentials against Firestore, throws an error if invalid username/password.
+  public static verifyUserCredentials = async (
+    username: string,
+    password: string
+  ) => {
+    if (!username || !password) {
+      throw new Error("Missing username or password");
+    }
+
+    const userDoc = await db.collection("users").doc(username).get();
+    if (!userDoc.exists) {
+      throw new Error("Invalid username");
+    }
+
+    const userData = userDoc.data();
+    if (password !== userData?.password) {
+      throw new Error("Invalid password");
+    }
+
+    return { userDoc, userData };
+  };
+
+  // Updates a user's Firestore field, default lastAccesstime, to the current date.
+  public static updateUserTimestamp = async (
+    username: string,
+    fieldName = "lastAccessedTime"
+  ) => {
+    await db
+      .collection("users")
+      .doc(username)
+      .update({
+        [fieldName]: new Date(),
+      });
+  };
+
+  // Reads an image from disk, returning a base64-encoded string.
+  public static getImageBlob = async (
+    directoryPath: string,
+    imageName: string
+  ) => {
+    const imagePath = path.join(
+      envVariables.IMAGES_PATH,
+      directoryPath,
+      imageName
+    );
+    return Utils.readImageAsBase64(imagePath);
   };
 }
