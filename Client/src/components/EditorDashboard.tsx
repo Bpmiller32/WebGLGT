@@ -94,11 +94,11 @@ export default defineComponent({
       activateGroup(0);
     });
     Emitter.on("gotoNextImage", async () => {
-      await loadNextImage();
+      await loadImage("next");
       activateGroup(0);
     });
     Emitter.on("gotoPrevImage", async () => {
-      await loadPrevImage();
+      await loadImage("prev");
       activateGroup(0);
     });
     Emitter.on("changeSelectionGroup", (groupNumber) => {
@@ -108,14 +108,7 @@ export default defineComponent({
       activateGroup(0);
     });
     Emitter.on("fastImageClassify", async (value: "mp" | "hw" | "bad") => {
-      const typeMap = { mp: "mp", hw: "hw", bad: "bad" };
-
-      // Update tag status from event using typeMap
-      textClassificationTags.value.forEach((textClassificationTag) => {
-        textClassificationTag.active =
-          textClassificationTag.type.toLowerCase() === typeMap[value];
-      });
-
+      toggleClassificationTag(value.toLowerCase());
       await submitToDb();
       gtSavedCount.value++;
     });
@@ -133,6 +126,28 @@ export default defineComponent({
       });
     };
 
+    const toggleClassificationTag = (tag: string) => {
+      textClassificationTags.value.forEach((mailType) => {
+        mailType.active = mailType.type.toLowerCase() === tag.toLowerCase();
+      });
+    };
+
+    const loadImage = async (direction: "next" | "prev") => {
+      if (direction === "next") {
+        await ApiHandler.handleNextImage(apiUrl, props.webglExperience);
+      } else {
+        await ApiHandler.handlePrevImage(apiUrl, props.webglExperience);
+      }
+
+      // Reset to group 0 after loading new image
+      activateGroup(0);
+
+      // Reset classification tags to default (MP)
+      textClassificationTags.value.forEach((tag) => {
+        tag.active = tag.type === "MP";
+      });
+    };
+
     const submitToDb = async () => {
       // Determine the active mail type
       const activeMailType = textClassificationTags.value.find(
@@ -147,6 +162,8 @@ export default defineComponent({
           group.value || "",
         ])
       );
+
+      // Gather selection group coordinates
       const groupCoordinates = Object.fromEntries(
         groupTextAreas.value.map((_, index) => {
           // Dynamically access the property and cast its type
@@ -183,32 +200,6 @@ export default defineComponent({
 
       // Send the update request
       await ApiHandler.updateImageData(apiUrl, updateData);
-    };
-
-    const loadNextImage = async () => {
-      await ApiHandler.handleNextImage(apiUrl, props.webglExperience);
-      activateGroup(0);
-
-      for (const tag of textClassificationTags.value) {
-        if (tag.type === "MP") {
-          tag.active = true;
-        } else {
-          tag.active = false;
-        }
-      }
-    };
-
-    const loadPrevImage = async () => {
-      await ApiHandler.handlePrevImage(apiUrl, props.webglExperience);
-      activateGroup(0);
-
-      for (const tag of textClassificationTags.value) {
-        if (tag.type === "MP") {
-          tag.active = true;
-        } else {
-          tag.active = false;
-        }
-      }
     };
 
     /* ----------------------------- Render function ---------------------------- */

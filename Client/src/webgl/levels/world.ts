@@ -14,20 +14,26 @@ import DelimiterImage from "../gtComponents/delimiterImage.ts";
 import VisualCueManager from "../gtComponents/visualCueManager.ts";
 
 export default class World {
-  public experience!: Experience;
-  public camera!: Camera;
-  public scene!: THREE.Scene;
+  public experience: Experience;
+  public camera: Camera;
+  public scene: THREE.Scene;
   public debug?: Debug;
-  public renderObjectCount!: number;
+  public renderObjectCount: number;
 
   public imageContainer?: ImageContainer;
   public selectionGroupManager?: SelectionGroupManager;
   public visualCueManager?: VisualCueManager;
-  public delimiterImages!: DelimiterImage[];
+  public delimiterImages: DelimiterImage[];
 
   constructor() {
-    // Init
-    this.initializeFields();
+    // Experience fields
+    this.experience = Experience.getInstance();
+    this.camera = this.experience.camera;
+    this.scene = this.experience.scene;
+
+    // Class fields
+    this.renderObjectCount = 0;
+    this.delimiterImages = [];
 
     // Events
     Emitter.on("appReady", () => {
@@ -95,7 +101,6 @@ export default class World {
         delimiterImage.resetPosition();
       });
     });
-
     Emitter.on("screenshotImage", () => {
       this.imageContainer?.screenshotImage();
     });
@@ -109,17 +114,6 @@ export default class World {
       this.debug = this.experience.debug;
       debugWorld(this);
     }
-  }
-
-  private initializeFields() {
-    // Experience fields
-    this.experience = Experience.getInstance();
-    this.camera = this.experience.camera;
-    this.scene = this.experience.scene;
-
-    // Class fields
-    this.renderObjectCount = 0;
-    this.delimiterImages = [];
   }
 
   public update() {

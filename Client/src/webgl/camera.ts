@@ -11,7 +11,7 @@ import Input from "./utils/input";
 import Debug from "./utils/debug";
 import { debugCamera, debugCameraControls } from "./utils/debug/debugCamera";
 
-// Add constants for configuration
+// Constants for configuration
 const CAMERA_DEFAULTS = {
   SENSITIVITY: {
     MOVEMENT: 0.1,
@@ -28,8 +28,6 @@ const CAMERA_DEFAULTS = {
     Z: 10,
   },
 } as const;
-
-type CameraType = "orthographic" | "perspective";
 
 export default class Camera {
   private experience: Experience;
@@ -179,9 +177,13 @@ export default class Camera {
   }
 
   public switchCamera(): void {
-    if (!this.experience.debug?.isActive) return;
+    // Only allow camera switch if debug is active
+    if (!this.experience.debug?.isActive) {
+      return;
+    }
 
-    const newType: CameraType =
+    // If instance is Orthographic => switch to Perspective, else vice versa
+    const newType =
       this.instance instanceof THREE.OrthographicCamera
         ? "perspective"
         : "orthographic";
@@ -191,6 +193,7 @@ export default class Camera {
         ? this.perspectiveCamera
         : this.orthographicCamera;
 
+    // Update cameraType string
     this.cameraType = newType;
   }
 
@@ -220,9 +223,9 @@ export default class Camera {
   }
 
   public update() {
+    // Debug controls only
     if (!(this.instance instanceof THREE.OrthographicCamera)) {
       debugCameraControls(this);
-
       return;
     }
 
@@ -239,11 +242,18 @@ export default class Camera {
 
   public destroy(): void {
     // Remove event listeners
-    // Object.entries(this.eventHandlers).forEach(([event, handler]) => {
-    //   Emitter.off(event, handler);
-    // });
+    Emitter.off("mouseDown");
+    Emitter.off("mouseMove");
+    Emitter.off("mouseUp");
+    Emitter.off("mouseWheel");
+    Emitter.off("switchCamera");
 
-    // Remove the camera from the scene
-    this.scene.remove(this.instance);
+    // Remove cameras from the scene
+    if (this.orthographicCamera) {
+      this.scene.remove(this.orthographicCamera);
+    }
+    if (this.perspectiveCamera) {
+      this.scene.remove(this.perspectiveCamera);
+    }
   }
 }

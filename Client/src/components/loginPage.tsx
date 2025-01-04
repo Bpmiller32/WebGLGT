@@ -25,21 +25,24 @@ export default defineComponent({
     // Env variables
     const apiUrl = import.meta.env.VITE_NGROK_URL;
 
-    // Template ref
+    // Credentials
     const username = ref<string>("");
     const password = ref<string>("");
 
+    // Projects
     const projectList = ref<string[]>([]);
     const selectedProject = ref<string>("");
 
+    // Admin panel
     const isAdminOpen = ref<boolean>(false);
 
-    const appLogoClickCount = ref<number>(0);
+    // Server / debug
     const isServerOnline = ref<boolean>(false);
-
-    const isStartButtonEnabled = ref<boolean>(true);
+    const appLogoClickCount = ref<number>(0);
     const isDebugButtonEnabled = ref<boolean>(true);
 
+    // UI states
+    const isStartButtonEnabled = ref<boolean>(true);
     const didLoginFail = ref<boolean>(false);
     const loginFailAnimationToggle = ref<boolean>(false);
 
@@ -55,12 +58,9 @@ export default defineComponent({
 
     /* ---------------------------- Template handlers --------------------------- */
     const handleAppLogoClicked = () => {
-      if (appLogoClickCount.value >= 4) {
-        isDebugButtonEnabled.value = true;
-        return;
-      }
-
       appLogoClickCount.value++;
+
+      // Put an easter egg of some sort here
     };
 
     const handleStartAppButtonClicked = async () => {
@@ -130,7 +130,6 @@ export default defineComponent({
               </div>
 
               {/* Server status */}
-
               <div class="flex justify-end">
                 <ServerStatusBadge isServerOnline={isServerOnline.value} />
               </div>

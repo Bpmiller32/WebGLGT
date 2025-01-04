@@ -1,3 +1,7 @@
+/* -------------------------------------------------------------------------- */
+/*      Visual indicator showing the starting point for a SelectionGroup      */
+/* -------------------------------------------------------------------------- */
+
 import * as THREE from "three";
 import Experience from "../experience";
 import Camera from "../camera";
@@ -7,24 +11,32 @@ import Input from "../utils/input";
 import World from "../levels/world";
 
 export default class VisualCueManager {
-  private experience: Experience;
-  private scene: THREE.Scene;
-  private camera: Camera;
-  private input: Input;
-  private time: Time;
-  private world: World;
+  private experience!: Experience;
+  private scene!: THREE.Scene;
+  private camera!: Camera;
+  private input!: Input;
+  private time!: Time;
+  private world!: World;
 
   private visualCueMesh!: THREE.Mesh;
-  private selectionZPosition = 5;
-  private readonly defaultVisualCueOpacity: number = 0.5;
-  private fadeSpeed: number = 1; // How quickly the visual cue fades out
-  private selectionGroupsColorMap: { [key: number]: number } = {
-    0: 0x00ff00,
-    1: 0xff0000,
-    2: 0x0000ff,
-  };
+
+  private clickZPosition!: number;
+  private defaultVisualCueOpacity!: number;
+  private fadeSpeed!: number;
+  private selectionGroupsColorMap!: { [key: number]: number };
 
   constructor() {
+    // Init
+    this.initializeFields();
+
+    this.createVisualCueMesh();
+
+    // Fix for autoLoggingIn and visualCue being visible before ImageContainer has loaded, do it here on 1st construct only since CreateVisualCueMesh is called every time after
+    this.visualCueMesh.visible = false;
+  }
+
+  private initializeFields() {
+    // Experience fields
     this.experience = Experience.getInstance();
     this.scene = this.experience.scene;
     this.camera = this.experience.camera;
@@ -32,10 +44,15 @@ export default class VisualCueManager {
     this.time = this.experience.time;
     this.world = this.experience.world;
 
-    this.createVisualCueMesh();
-
-    // Fix for autoLoggingIn and visualCue being visible before ImageContainer has loaded, do it here on 1st construct only since CreateVisualCueMesh is called every time after
-    this.visualCueMesh.visible = false;
+    // Class fields
+    this.clickZPosition = 5; // Z position of where to place the cue on a click
+    this.defaultVisualCueOpacity = 0.5;
+    this.fadeSpeed = 1; // How quickly the visual cue fades out in s
+    this.selectionGroupsColorMap = {
+      0: 0x00ff00,
+      1: 0xff0000,
+      2: 0x0000ff,
+    };
   }
 
   public createVisualCueMesh() {
@@ -74,18 +91,18 @@ export default class VisualCueManager {
     const worldStartMousePosition = GtUtils.screenToSceneCoordinates(
       event.clientX,
       event.clientY,
-      this.selectionZPosition
+      this.clickZPosition
     );
 
     // Teleport existing visual cue, separate from the activeMesh, and updates opacity for fade out effect instead of creating new meshes/materials
     this.visualCueMesh.position.set(
       worldStartMousePosition.x,
       worldStartMousePosition.y,
-      this.selectionZPosition
+      this.clickZPosition
     );
 
-    const mat = this.visualCueMesh.material as THREE.MeshBasicMaterial;
-    mat.opacity = this.defaultVisualCueOpacity;
+    const material = this.visualCueMesh.material as THREE.MeshBasicMaterial;
+    material.opacity = this.defaultVisualCueOpacity;
   }
 
   public changeColor(groupNumber: number) {

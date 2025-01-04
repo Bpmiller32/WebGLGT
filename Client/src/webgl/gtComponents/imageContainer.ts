@@ -43,7 +43,7 @@ export default class ImageContainer {
   public stopwatch!: Stopwatch;
   public imageDownloadCount!: number;
 
-  public selectionGroupsUsed: boolean[] = [false, false, false];
+  public selectionGroupsUsed!: boolean[];
 
   constructor() {
     // Init
@@ -55,6 +55,7 @@ export default class ImageContainer {
       debugImageContainer(this);
     }
   }
+
   private initializeFields() {
     // Experience fields
     this.experience = Experience.getInstance();
@@ -66,14 +67,16 @@ export default class ImageContainer {
     this.world = this.experience.world;
     this.input = this.experience.input;
 
+    // Class fields
     this.isScreenshotDownloadEnabled = false;
     this.isOriginalDownloadEnabled = false;
 
-    // Class fields
     this.rotationSpeed = 0.005;
     this.isRotationDisabled = false;
     this.lerpFactor = 1;
     this.targetRotation = new THREE.Vector2();
+
+    this.selectionGroupsUsed = [false, false, false];
 
     // Backend fields
     this.imageRotation = 0;

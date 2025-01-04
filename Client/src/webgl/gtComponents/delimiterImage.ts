@@ -1,5 +1,5 @@
 /* -------------------------------------------------------------------------- */
-/*    Image with delimited text, used to separate groups in vision response   */
+/*    Image with delimited text, used to separate groups in Vision response   */
 /* -------------------------------------------------------------------------- */
 
 import * as THREE from "three";
@@ -33,10 +33,12 @@ export default class DelimiterImage {
     this.resources = this.experience.resources;
     this.scene = this.experience.scene;
 
+    // Class fields
     this.initialPosition = new THREE.Vector3(0, 0, 20);
   }
 
   /* ---------------------------- Instance methods ---------------------------- */
+
   private setGeometry() {
     const textureAspectRatio =
       this.resources.items.delimiterImage.image.width /
@@ -77,9 +79,6 @@ export default class DelimiterImage {
     this.mesh.position.copy(this.initialPosition);
 
     this.scene.add(this.mesh);
-
-    // // Fix for debug since mesh is not always set
-    // this.imageRotation = this.convertRotation(this.mesh.rotation.z);
   }
 
   public setScale(value: number) {

@@ -1,5 +1,5 @@
 /* -------------------------------------------------------------------------- */
-/*          Handler for creating, joining, managing selection groups          */
+/*           Handler for creating, joining, managing SelectionGroups          */
 /* -------------------------------------------------------------------------- */
 
 import * as THREE from "three";
@@ -39,16 +39,10 @@ export default class SelectionGroupManager {
   public selectionGroupPixelCoordinates1!: THREE.Vector2[];
   public selectionGroupPixelCoordinates2!: THREE.Vector2[];
 
-  // Configuration
-  private readonly defaultOpacity: number = 0.35;
-  private readonly selectionZPosition: number = 5;
-  // Padding between delimiter and cropped meshes, helps/fixes issue where text is skewed and Google Vision also skews delimiter text - breaking group delimiting
-  private readonly delimiterPadding: number = 0.1;
-  private selectionGroupsColorMap: { [key: number]: number } = {
-    0: 0x00ff00,
-    1: 0xff0000,
-    2: 0x0000ff,
-  };
+  private defaultOpacity!: number;
+  private selectionZPosition!: number;
+  private delimiterPadding!: number;
+  private selectionGroupsColorMap!: { [key: number]: number };
 
   constructor() {
     // Init
@@ -86,6 +80,16 @@ export default class SelectionGroupManager {
     this.selectionGroupPixelCoordinates0 = [];
     this.selectionGroupPixelCoordinates1 = [];
     this.selectionGroupPixelCoordinates2 = [];
+
+    // Configuration
+    this.defaultOpacity = 0.35;
+    this.selectionZPosition = 5;
+    this.delimiterPadding = 0.1; // Padding between delimiter and cropped meshes, helps/fixes issue where text is skewed and Google Vision also skews delimiter text - breaking group delimiting
+    this.selectionGroupsColorMap = {
+      0: 0x00ff00,
+      1: 0xff0000,
+      2: 0x0000ff,
+    };
   }
 
   /* ------------------------------ Event methods ----------------------------- */

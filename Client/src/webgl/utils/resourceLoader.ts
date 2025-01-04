@@ -14,13 +14,14 @@ export default class ResourceLoader {
   private textureLoader?: THREE.TextureLoader;
 
   constructor() {
+    // Class fields
     this.items = {};
     this.apiKey = "";
     this.textureLoader = new THREE.TextureLoader();
   }
 
   public loadDelimiterImage() {
-    // Resolve the path to the delimiter image in /src/assets
+    // Resolve the path to the delimiter image in /src/assets, this is instead of serving from /public
     const delimiterImagePath = new URL(
       "/src/assets/delimiterImage.png",
       import.meta.url
@@ -33,7 +34,7 @@ export default class ResourceLoader {
   }
 
   public loadGtImageFromApi(imageUrl?: string, blob?: Blob) {
-    // Store both URL and blob for later use
+    // Store both URL and blob for later use in disposal and potential download in debug
     this.currentImageUrl = imageUrl;
     this.currentImageBlob = blob;
 

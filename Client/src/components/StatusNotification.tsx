@@ -11,12 +11,12 @@ import StatusAlert from "./subcomponents/StatusAlert";
 export default defineComponent({
   setup() {
     /* ------------------------ Component state and setup ----------------------- */
-    const isAlertEnabled = ref<boolean>(false);
-    const isAlertVisibilityExtended = ref<boolean>(false);
-    const statusAlertText = ref<string | undefined>();
-    const statusAlertColor = ref<
-      "success" | "loading" | "warning" | "error" | undefined
-    >();
+    const isVisible = ref<boolean>(false);
+    const message = ref<string>("");
+    const alertType = ref<"success" | "loading" | "warning" | "error">(
+      "success"
+    );
+    let dismissTimer: number | null = null;
 
     const statusAlertConfig = {
       success: {
@@ -43,69 +43,70 @@ export default defineComponent({
 
     /* ---------------------------- Lifecycle Events ---------------------------- */
     Emitter.on("fillInForm", () => {
-      // Covers case where resubmitting, indicate to user with 2nd animation by disabling/enabling with toggleAlert
-      updateAlert("Successfully uploaded", "success");
-      toggleAlert();
+      showNotification("Successfully uploaded", "success", 3000, false);
     });
     Emitter.on("gotoNextImage", () => {
-      updateAlert("Loading next image....", "loading");
+      showNotification("Loading next image...", "loading", 5000, true);
     });
     Emitter.on("gotoPrevImage", () => {
-      updateAlert("Loading previous image....", "loading");
+      showNotification("Loading previous image...", "loading", 5000, true);
     });
     Emitter.on("loadedFromApi", () => {
-      // Force keep notifications up, simple workaround - revisit if more complicated notification timing needed
-      setTimeout(
-        () => {
-          isAlertEnabled.value = false;
-          isAlertVisibilityExtended.value = false;
-        },
-        isAlertVisibilityExtended.value ? 2000 : 0
-      );
+      dismiss();
     });
     Emitter.on("stitchBoxes", () => {
-      isAlertEnabled.value = false;
+      dismiss();
     });
     Emitter.on("screenshotImage", () => {
-      isAlertEnabled.value = false;
+      dismiss();
     });
     Emitter.on("resetImage", () => {
-      isAlertEnabled.value = false;
+      dismiss();
     });
     Emitter.on("appSuccess", (message: string) => {
-      isAlertVisibilityExtended.value = true;
-      updateAlert(message, "success");
-      toggleAlert();
+      showNotification(message, "success", 3000, false);
     });
     Emitter.on("appLoading", (message: string) => {
-      updateAlert(message, "loading");
+      showNotification(message, "loading", 10000, true);
     });
     Emitter.on("appWarning", (message: string) => {
-      updateAlert(message, "warning");
-      toggleAlert();
+      showNotification(message, "warning", 4000, false);
     });
     Emitter.on("appError", (message: string) => {
-      // ToggleAlert fixes bug where loading updateAlert wasn't "finished"
-      updateAlert(message, "error");
-      toggleAlert();
+      // error stays up until dismissed
+      showNotification(message, "error", 0, true);
     });
 
     /* ---------------------------- Helper Methods ---------------------------- */
-    const updateAlert = (
-      text: string,
-      color: "success" | "loading" | "warning" | "error"
+    const showNotification = (
+      newMessage: string,
+      newType: "success" | "loading" | "warning" | "error",
+      duration: number = 3000,
+      manualDismissAllowed = false
     ) => {
-      statusAlertText.value = text;
-      statusAlertColor.value = color;
-      isAlertEnabled.value = true;
+      // Dismiss any currently active notification first
+      dismiss();
+
+      // Update reactive state for the new notification
+      message.value = newMessage;
+      alertType.value = newType;
+      isVisible.value = true;
+
+      // If not manually dismissable, auto-dismiss after 'duration'
+      if (!manualDismissAllowed && duration > 0) {
+        dismissTimer = window.setTimeout(() => {
+          dismiss();
+        }, duration);
+      }
     };
 
-    const toggleAlert = () => {
-      isAlertEnabled.value = false;
+    const dismiss = () => {
+      isVisible.value = false;
 
-      setTimeout(() => {
-        isAlertEnabled.value = true;
-      }, 100);
+      if (dismissTimer) {
+        clearTimeout(dismissTimer);
+        dismissTimer = null;
+      }
     };
 
     /* ----------------------------- Render function ---------------------------- */
@@ -118,11 +119,11 @@ export default defineComponent({
         leaveToClass="opacity-0 -translate-y-full"
         leaveActiveClass="transition duration-[500ms]"
       >
-        {isAlertEnabled.value && (
+        {isVisible.value && (
           <article class="mt-4 max-w-60">
             <StatusAlert
-              statusAlertColor={statusAlertColor.value}
-              statusAlertText={statusAlertText.value || ""}
+              statusAlertColor={alertType.value}
+              statusAlertText={message.value}
               statusAlertConfig={statusAlertConfig}
             />
           </article>

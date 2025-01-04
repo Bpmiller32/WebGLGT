@@ -1,3 +1,7 @@
+/* -------------------------------------------------------------------------- */
+/*       Tools to consolidates shared logic for reuse across components       */
+/* -------------------------------------------------------------------------- */
+
 import * as THREE from "three";
 import ImageContainer from "../gtComponents/imageContainer";
 import Experience from "../experience";
