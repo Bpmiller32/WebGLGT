@@ -20,7 +20,13 @@ export default class ResourceLoader {
   }
 
   public loadDelimiterImage() {
-    this.textureLoader?.load("/delimiterImage.png", (file) => {
+    // Resolve the path to the delimiter image in /src/assets
+    const delimiterImagePath = new URL(
+      "/src/assets/delimiterImage.png",
+      import.meta.url
+    ).href;
+
+    this.textureLoader?.load(delimiterImagePath, (file) => {
       this.items["delimiterImage"] = file;
       Emitter.emit("loadedFromFile");
     });

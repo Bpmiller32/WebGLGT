@@ -55,6 +55,7 @@ export default class Utils {
     }
   };
 
+  // Creates nessasary indicies for db, or at least tries to....
   public static createFirestoreIndex = async (
     projectId: string,
     collectionId: string
@@ -107,8 +108,8 @@ export default class Utils {
           queryScope: "COLLECTION",
         },
       });
-    } catch (error: any) {
-      throw new Error("Failed to create Firestore index");
+    } catch (error) {
+      throw new Error(`Failed to create Firestore index: ${error}`);
     }
   };
 

@@ -16,7 +16,8 @@ import { Parser } from "json2csv";
 /*                                    Setup                                   */
 /* -------------------------------------------------------------------------- */
 const app = express();
-const port = 3000;
+const port = 3001;
+const reverseProxySubdomain = "/rafgroundtruth";
 configureMiddleware(app); // Global middleware setup
 
 /* -------------------------------------------------------------------------- */
@@ -25,7 +26,7 @@ configureMiddleware(app); // Global middleware setup
 
 /* -------------------------------- Ping Echo ------------------------------- */
 app.get(
-  "/pingServer",
+  `${reverseProxySubdomain}/pingServer`,
   Utils.asyncHandler(async (_req: Request, res: Response) => {
     res.status(200).send("Hello, World!");
   })
@@ -33,7 +34,7 @@ app.get(
 
 /* -------------------------- Serve Vision API key -------------------------- */
 app.get(
-  "/getApiKey",
+  `${reverseProxySubdomain}/getApiKey`,
   requireAuth,
   Utils.asyncHandler(async (_req: Request, res: Response) => {
     res.status(200).send(envVariables.GOOGLE_VISION_API_KEY);
@@ -42,7 +43,7 @@ app.get(
 
 /* ------------------------------- Login Route ------------------------------ */
 app.post(
-  "/login",
+  `${reverseProxySubdomain}/login`,
   Utils.asyncHandler(async (req: Request, res: Response) => {
     const { username, password } = req.body;
     const { userDoc } = await Utils.verifyUserCredentials(username, password);
@@ -61,7 +62,7 @@ app.post(
 
 /* ------------------------- Check if user is admin ------------------------- */
 app.post(
-  "/checkAdmin",
+  `${reverseProxySubdomain}/checkAdmin`,
   Utils.asyncHandler(async (req: Request, res: Response) => {
     const { username, password } = req.body;
     const { userDoc, userData } = await Utils.verifyUserCredentials(
@@ -84,7 +85,7 @@ app.post(
 
 /* ---------------------------- Get projects info --------------------------- */
 app.get(
-  "/projectsInfo",
+  `${reverseProxySubdomain}/projectsInfo`,
   Utils.asyncHandler(async (_req: Request, res: Response) => {
     const collections = await db.listCollections();
 
@@ -99,7 +100,7 @@ app.get(
 
 /* --------------------------- Serve PDF help file -------------------------- */
 app.get(
-  "/getPdf",
+  `${reverseProxySubdomain}/getPdf`,
   Utils.asyncHandler(async (_req: Request, res: Response) => {
     // Construct file path
     const pdfFilePath = path.join(envVariables.IMAGES_PATH, "helpFile.pdf");
@@ -121,7 +122,7 @@ app.get(
 
 /* ------------------------------- Next image ------------------------------- */
 app.post(
-  "/next",
+  `${reverseProxySubdomain}/next`,
   requireAuth,
   Utils.asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Verify there is a valid user
@@ -240,7 +241,7 @@ app.post(
 
 /* ----------------------------- Previous image ----------------------------- */
 app.post(
-  "/prev",
+  `${reverseProxySubdomain}/prev`,
   requireAuth,
   Utils.asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Verify there is a valid user
@@ -317,7 +318,7 @@ app.post(
 
 /* --------------------------- Update image data ---------------------------- */
 app.post(
-  "/update",
+  `${reverseProxySubdomain}/update`,
   requireAuth,
   Utils.asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // Verify there is a valid user
@@ -359,7 +360,7 @@ app.post(
 
 /* -------------------------- Test Protected Route -------------------------- */
 app.get(
-  "/protected",
+  `${reverseProxySubdomain}/protected`,
   Utils.asyncHandler(async (req: Request, res: Response) => {
     const authHeader = req.headers.authorization;
     const token = Utils.extractToken(authHeader);
@@ -375,7 +376,7 @@ app.get(
 
 /* ------------------------- Create a new project db ------------------------ */
 app.post(
-  "/createImageDatabase",
+  `${reverseProxySubdomain}/createImageDatabase`,
   requireAuth,
   Utils.asyncHandler(async (req: Request, res: Response) => {
     // Grab project/db name from request
@@ -440,7 +441,10 @@ app.post(
 
     // Only create Firestore index if this is a brand new collection
     if (!collectionAlreadyExists) {
-      await Utils.createFirestoreIndex("webglgt", projectName);
+      await Utils.createFirestoreIndex(
+        envVariables.GOOGLECLOUD_SERVICE_ACCOUNT.project_id,
+        projectName
+      );
     }
 
     res.status(200).json({
@@ -454,7 +458,7 @@ app.post(
 
 /* -------------------------- Export project to CSV ------------------------- */
 app.post(
-  "/exportToCsv",
+  `${reverseProxySubdomain}/exportToCsv`,
   requireAuth,
   Utils.asyncHandler(async (req: Request, res: Response) => {
     // Grab project/db name from request
@@ -496,7 +500,7 @@ app.post(
 
 /* -------------------------- Get stats on project -------------------------- */
 app.post(
-  "/getProjectStats",
+  `${reverseProxySubdomain}/getProjectStats`,
   requireAuth,
   Utils.asyncHandler(async (req: Request, res: Response) => {
     // Grab project/db name from request

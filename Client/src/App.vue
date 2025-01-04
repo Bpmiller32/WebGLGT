@@ -6,7 +6,6 @@ import LoginPage from "./components/LoginPage.tsx";
 import ApiHandler from "./apiHandler.ts";
 import StatusNotification from "./components/StatusNotification.tsx";
 import Emitter from "./webgl/utils/eventEmitter.ts";
-import { logTrackedEvent } from "./firebase/logTrackedEvent.ts";
 
 /* -------------------------------- App setup ------------------------------- */
 const sessionId = ref<string>("");
@@ -18,8 +17,7 @@ const apiUrl = import.meta.env.VITE_NGROK_URL;
 const webglExperience = Experience.getInstance();
 
 onMounted(async () => {
-  // // TODO: working analytics, reenable on deploy
-  // // Log site visit
+  // Log site visit
   // sessionId.value = await logSiteVisit();
 
   // Initialize the WebGL experience
@@ -47,7 +45,7 @@ const handleStartApp = async () => {
 
   // TODO: temporary until built into the Db in a settings entry
   const projectName = localStorage.getItem("projectName");
-  if (projectName == "testTjx2") {
+  if (projectName == "tjx") {
     Emitter.emit("setEditorDashboard", {
       numberOfSelectionGroups: 3,
       tags: ["Vendor Only"],
@@ -58,13 +56,6 @@ const handleStartApp = async () => {
     Emitter.emit("setEditorDashboard", {
       numberOfSelectionGroups: 1,
       tags: ["RTS", "Form 3547", "FWD", "DBL Feed"],
-    });
-  }
-
-  if (projectName == "usps2") {
-    Emitter.emit("setEditorDashboard", {
-      numberOfSelectionGroups: 1,
-      tags: [],
     });
   }
 
@@ -98,7 +89,7 @@ const attemptAutoLogin = async () => {
 
   // Automatically start app
   isAutoLoggingIn.value = true;
-  logTrackedEvent(sessionId.value, "auto logged in");
+  // logTrackedEvent(sessionId.value, "auto logged in");
   Emitter.emit("appSuccess", "Automatically logged in to previous project");
   await handleStartApp();
 };

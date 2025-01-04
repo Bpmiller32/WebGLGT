@@ -7,7 +7,6 @@ import DebugButton from "./subcomponents/DebugButton";
 import StartAppButton from "./subcomponents/StartAppButton";
 import LoginErrorLabel from "./subcomponents/LoginErrorLabel";
 import ProjectSelect from "./subcomponents/ProjectSelect";
-import { logTrackedEvent } from "../firebase/logTrackedEvent";
 import AdminPanel from "./AdminPanel";
 
 export default defineComponent({
@@ -65,7 +64,7 @@ export default defineComponent({
     };
 
     const handleStartAppButtonClicked = async () => {
-      await logTrackedEvent(props.sessionId, "clicked start button");
+      // await logTrackedEvent(props.sessionId, "clicked start button");
 
       const isAuthenticated = await ApiHandler.login(
         apiUrl,
@@ -100,7 +99,7 @@ export default defineComponent({
     };
 
     const handleLoginError = async () => {
-      await logTrackedEvent(props.sessionId, "failed login");
+      // await logTrackedEvent(props.sessionId, "failed login");
 
       didLoginFail.value = true;
       loginFailAnimationToggle.value = !loginFailAnimationToggle.value;

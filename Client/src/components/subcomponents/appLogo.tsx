@@ -1,11 +1,11 @@
 import { defineComponent } from "vue";
-import volarisLogo from "../../assets/volarisLogo.svg";
+import groundTruth2Logo from "../../assets/groundTruth2Logo.webp";
 
 export default defineComponent({
   setup() {
     return () => (
-      <div class="mb-5 select-none cursor-default">
-        <img src={volarisLogo} class="h-5 w-full" alt="volarisLogo" />
+      <div class="mb-5 flex justify-center select-none cursor-default">
+        <img src={groundTruth2Logo} class="h-8" alt="groundTruth2Logo" />
       </div>
     );
   },

@@ -34,17 +34,22 @@ const KEY_EVENT_MAP: {
   },
   F5: {
     onDown: () => {
-      Emitter.emit("fillInForm");
+      Emitter.emit("fastImageClassify", "mp");
       Emitter.emit("gotoNextImage");
     },
   },
   F6: {
     onDown: () => {
-      Emitter.emit("badImage");
+      Emitter.emit("fastImageClassify", "hw");
       Emitter.emit("gotoNextImage");
     },
   },
-  F7: {},
+  F7: {
+    onDown: () => {
+      Emitter.emit("fastImageClassify", "bad");
+      Emitter.emit("gotoNextImage");
+    },
+  },
   F8: {},
   F9: {},
   F10: {
@@ -125,6 +130,9 @@ export default class Input {
 
     // Disable context menu for custom right-click behavior
     window.addEventListener("contextmenu", this.handleContextMenu);
+
+    // Doesn't really belong here but I don't want to put it in the DOM sections
+    window.addEventListener("storage", this.handleStorageEvent);
   }
 
   /* -------------------------------------------------------------------------- */
@@ -136,6 +144,15 @@ export default class Input {
     const keyDef = KEY_EVENT_MAP[event.code];
     if (!keyDef) {
       return;
+    }
+
+    // Prevent default behavior for specific keys, mainly function keys
+    if (
+      ["F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10"].includes(
+        event.code
+      )
+    ) {
+      event.preventDefault();
     }
 
     // Mark as pressed
@@ -222,6 +239,14 @@ export default class Input {
     event.preventDefault();
   };
 
+  private handleStorageEvent = (event: StorageEvent) => {
+    // If the user has multiple tabs open and logs out of one, this causes all other tabs to react
+    if (event.key === "loggedOut") {
+      // Log the user out and refresh the page
+      location.reload();
+    }
+  };
+
   /* ------------------------------ Tick methods ------------------------------ */
   public destroy() {
     // Properly remove all the event listeners
@@ -235,6 +260,7 @@ export default class Input {
     window.removeEventListener("wheel", this.handleGlobalWheel);
 
     window.removeEventListener("contextmenu", this.handleContextMenu);
+    window.removeEventListener("storage", this.handleStorageEvent);
   }
 
   public isKeyPressed(code: string) {

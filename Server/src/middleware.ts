@@ -15,7 +15,7 @@ export const configureMiddleware = (app: Application) => {
       origin: [
         "http://localhost:5173",
         "https://webglgt.web.app",
-        "https://gt.bpmiller.com",
+        "https://rafgroundtruth.web.app",
       ], // Replace with approved frontend URLs
       methods: ["GET", "POST"],
       allowedHeaders: ["Content-Type", "Authorization"],

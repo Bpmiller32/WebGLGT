@@ -38,9 +38,11 @@ export default defineComponent({
           class={{
             "h-5 w-5 rounded-full duration-300": true,
             "bg-green-500 ring-1 ring-white":
-              props.buttonType !== "Bad" && props.buttonVariable === true,
+              props.buttonType.toLowerCase() !== "bad" &&
+              props.buttonVariable === true,
             "bg-red-500 ring-1 ring-white":
-              props.buttonType === "Bad" && props.buttonVariable === true,
+              props.buttonType.toLowerCase() === "bad" &&
+              props.buttonVariable === true,
             "ring-1 ring-white":
               props.buttonVariable === false || props.buttonVariable === null, // Handles false and null
           }}

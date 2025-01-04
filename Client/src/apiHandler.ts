@@ -3,9 +3,10 @@ import Experience from "./webgl/experience";
 import axios from "axios";
 
 export default class ApiHander {
-  public static async pingServer(apiUrl: string) {
+  // Pings the Server
+  public static async pingServer(apiUrl: string): Promise<boolean> {
     try {
-      await axios.get(apiUrl + "/pingServer");
+      await axios.get(`${apiUrl}/pingServer`);
       return true;
     } catch {
       console.error("Server not available");
@@ -14,42 +15,36 @@ export default class ApiHander {
     }
   }
 
-  public static async getApiKey(apiUrl: string) {
+  // Retrieves Vision API key from Server
+  public static async getApiKey(apiUrl: string): Promise<string> {
     try {
-      // Retrieve the token from localStorage
-      const token = localStorage.getItem("jwtToken");
-      if (!token) {
-        throw new Error("No user token found. Please log in.");
-      }
-
-      const response = await axios.get(apiUrl + "/getApiKey", {
-        headers: {
-          Authorization: `Bearer ${token}`, // Include the token in the Authorization header
-          "Content-Type": "application/json", // Ensure content type is JSON
-        },
+      const token = this.getTokenOrThrow();
+      const response = await axios.get(`${apiUrl}/getApiKey`, {
+        headers: this.getAuthHeaders(token),
       });
 
       return response.data;
-    } catch {
-      console.error("Error getting apiKey");
+    } catch (error) {
+      console.error("Error getting apiKey", error);
       Emitter.emit("appError", "Error getting apiKey");
       return "";
     }
   }
 
-  public static async getProjects(apiUrl: string) {
+  // Fetches available projects from Server
+  public static async getProjects(apiUrl: string): Promise<string[]> {
     try {
-      const response = await axios.get(apiUrl + "/projectsInfo");
-
+      const response = await axios.get(`${apiUrl}/projectsInfo`);
       return response.data;
     } catch (error) {
-      console.error("Error fetching projects: ", error);
+      console.error("Error fetching projects:", error);
       Emitter.emit("appError", "Error fetching projects");
       return [];
     }
   }
 
-  public static async getPdf(apiUrl: string) {
+  // Downloads User Guide PDF from the server and opens it in a new tab
+  public static async getPdf(apiUrl: string): Promise<void> {
     try {
       const response = await axios.get(`${apiUrl}/getPdf`, {
         responseType: "blob", // Ensures the response is handled as a binary file
@@ -74,6 +69,7 @@ export default class ApiHander {
     }
   }
 
+  // Attempts login, stores JWT and project info in localstorage
   public static async login(
     apiUrl: string,
     username: string,
@@ -81,11 +77,11 @@ export default class ApiHander {
     autoLogin: boolean,
     projectName?: string,
     directoryPath?: string
-  ) {
+  ): Promise<boolean> {
     try {
-      const response = await axios.post(apiUrl + "/login", {
-        username: username,
-        password: password,
+      const response = await axios.post(`${apiUrl}/login`, {
+        username,
+        password,
       });
 
       // Extract the token from the response
@@ -495,4 +491,50 @@ export default class ApiHander {
       return null;
     }
   }
+  /* ----------------------------- Helper methods ----------------------------- */
+  // Retrieves the JWT token from localStorage or throws an error if missing.
+  private static getTokenOrThrow(): string {
+    const token = localStorage.getItem("jwtToken");
+    if (!token) {
+      throw new Error("No user token found. Please log in.");
+    }
+    return token;
+  }
+
+  // Builds the authorization headers for Axios requests.
+  private static getAuthHeaders(token: string) {
+    return {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+  }
+
+  // //  Decodes a base64-encoded image string into a Blob and object URL.
+  // private static decodeBase64Image(imageBlob: string): {
+  //   blob: Blob;
+  //   blobUrl: string;
+  // } {
+  //   const binary = atob(imageBlob);
+  //   const array = new Uint8Array(binary.length);
+  //   for (let i = 0; i < binary.length; i++) {
+  //     array[i] = binary.charCodeAt(i);
+  //   }
+
+  //   const blob = new Blob([array], { type: "image/png" });
+  //   const blobUrl = URL.createObjectURL(blob);
+  //   return { blob, blobUrl };
+  // }
+
+  // // Retrieves projectName/directoryPath from localStorage or throws an error if missing.
+  // private static getProjectInfoOrThrow(): {
+  //   projectName: string;
+  //   directoryPath: string;
+  // } {
+  //   const projectName = localStorage.getItem("projectName");
+  //   const directoryPath = localStorage.getItem("directoryPath");
+  //   if (!projectName || !directoryPath) {
+  //     throw new Error("ProjectName or DirectoryPath missing. Please re-login.");
+  //   }
+  //   return { projectName, directoryPath };
+  // }
 }

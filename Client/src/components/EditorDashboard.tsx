@@ -107,14 +107,14 @@ export default defineComponent({
     Emitter.on("resetImage", () => {
       activateGroup(0);
     });
-    Emitter.on("badImage", async () => {
-      for (const tag of textClassificationTags.value) {
-        if (tag.type === "Bad") {
-          tag.active = true;
-        } else {
-          tag.active = false;
-        }
-      }
+    Emitter.on("fastImageClassify", async (value: "mp" | "hw" | "bad") => {
+      const typeMap = { mp: "mp", hw: "hw", bad: "bad" };
+
+      // Update tag status from event using typeMap
+      textClassificationTags.value.forEach((textClassificationTag) => {
+        textClassificationTag.active =
+          textClassificationTag.type.toLowerCase() === typeMap[value];
+      });
 
       await submitToDb();
       gtSavedCount.value++;
@@ -247,6 +247,8 @@ export default defineComponent({
                 handleClick={() => {
                   // Removes all items from localStorage
                   localStorage.clear();
+                  // Set a timestamp to trigger the event, used for logging out of other tabs
+                  localStorage.setItem("loggedOut", Date.now().toString());
                   // Refreshes the current page which will kick back to login screen
                   location.reload();
                 }}
@@ -289,7 +291,7 @@ export default defineComponent({
               <GroupTextArea
                 key={`groupTextArea-${index}`}
                 color={["green", "red", "blue"][index % 3]} // Rotate colors if needed
-                id={`dashboardTextarea${index}`}
+                id={index}
                 isActive={group.isActive}
                 setTextArea={(newValue: string) => (group.value = newValue)}
               />

@@ -1,4 +1,5 @@
 import { defineComponent, ref, PropType, onMounted, onUnmounted } from "vue";
+import Emitter from "../../webgl/utils/eventEmitter";
 
 export default defineComponent({
   props: {
@@ -7,7 +8,7 @@ export default defineComponent({
       required: true,
     },
     id: {
-      type: String as PropType<string>,
+      type: Number as PropType<number>,
       required: true,
     },
     setTextArea: {
@@ -28,7 +29,9 @@ export default defineComponent({
 
     // Setup value property interceptor on mount
     onMounted(() => {
-      const element = document.getElementById(props.id) as HTMLTextAreaElement;
+      const element = document.getElementById(
+        `dashboardTextarea${props.id}`
+      ) as HTMLTextAreaElement;
       if (!element) {
         return;
       }
@@ -68,7 +71,9 @@ export default defineComponent({
 
     // Cleanup, restore the original value descriptor on unmount
     onUnmounted(() => {
-      const element = document.getElementById(props.id) as HTMLTextAreaElement;
+      const element = document.getElementById(
+        `dashboardTextarea${props.id}`
+      ) as HTMLTextAreaElement;
       if (element && originalDescriptor) {
         Object.defineProperty(element, "value", originalDescriptor);
       }
@@ -78,7 +83,7 @@ export default defineComponent({
       <div class="flex pb-2">
         <textarea
           rows="3"
-          id={props.id}
+          id={`dashboardTextarea${props.id}`}
           value={value.value}
           onInput={(event) => {
             const normalizedValue = (event.target as HTMLTextAreaElement).value
@@ -88,12 +93,13 @@ export default defineComponent({
 
             props.setTextArea(normalizedValue);
           }}
+          onClick={() => {
+            Emitter.emit("changeSelectionGroup", props.id);
+          }}
           class={[
             "bg-transparent text-gray-100 text-sm leading-6 resize-none w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400",
             props.isActive &&
               "ring-2 ring-inset ring-indigo-600 focus:ring-[2.3px] focus:ring-indigo-600 focus:ring-inset",
-            !props.isActive &&
-              "focus:ring-2 focus:ring-gray-300 focus:ring-inset",
           ]}
         />
         <div

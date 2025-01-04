@@ -28,7 +28,7 @@ type EventMap = {
   stitchBoxes: void;
   screenshotImage: void;
   resetImage: void;
-  badImage: void;
+  fastImageClassify: "mp" | "hw" | "bad";
   // api events/template events
   loadedFromApi: void;
   loadedFromFile: void;
