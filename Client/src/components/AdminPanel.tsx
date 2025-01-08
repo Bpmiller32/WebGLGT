@@ -122,16 +122,14 @@ export default defineComponent({
 
         alert(
           `
-          Project: ${selectedProject.value}
-          
-          Completed: ${stats.completedDocuments}
-          Total: ${stats.totalDocuments}
-          ${((stats.completedDocuments / stats.totalDocuments) * 100).toFixed(
-            2
-          )}%
-          
-          User counts
-          ${userCountsFormatted}
+Project: ${selectedProject.value}
+
+Completed: ${stats.completedDocuments}
+Total: ${stats.totalDocuments}
+${((stats.completedDocuments / stats.totalDocuments) * 100).toFixed(2)}%
+
+User counts
+${userCountsFormatted}
           `
         );
       } catch {

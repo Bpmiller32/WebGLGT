@@ -18,6 +18,7 @@ import { Parser } from "json2csv";
 const app = express();
 const port = 3001;
 const reverseProxySubdomain = "/rafgroundtruth";
+// const reverseProxySubdomain = "";
 configureMiddleware(app); // Global middleware setup
 
 /* -------------------------------------------------------------------------- */
@@ -439,13 +440,11 @@ app.post(
       entryCount++;
     }
 
-    // Only create Firestore index if this is a brand new collection
-    if (!collectionAlreadyExists) {
-      await Utils.createFirestoreIndex(
-        envVariables.GOOGLECLOUD_SERVICE_ACCOUNT.project_id,
-        projectName
-      );
-    }
+    // Create Firestore indexes if needed
+    await Utils.createFirestoreIndex(
+      envVariables.GOOGLECLOUD_SERVICE_ACCOUNT.project_id,
+      projectName
+    );
 
     res.status(200).json({
       message: `Images added to database created for project: ${projectName}`,

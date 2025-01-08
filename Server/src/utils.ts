@@ -45,7 +45,7 @@ export default class Utils {
   public static getImageFiles = async (directoryPath: string) => {
     try {
       const files = await fs.readdir(directoryPath);
-      const imageExtensions = [".jpg", ".jpeg", ".png", ".bmp", ".gif"];
+      const imageExtensions = [".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif"];
 
       return files.filter((file) =>
         imageExtensions.includes(path.extname(file).toLowerCase())
@@ -55,7 +55,7 @@ export default class Utils {
     }
   };
 
-  // Creates nessasary indicies for db, or at least tries to....
+  // Creates necessary indices for db if they don't already exist
   public static createFirestoreIndex = async (
     projectId: string,
     collectionId: string
@@ -73,43 +73,88 @@ export default class Utils {
       auth: authClient,
     });
 
-    // Define collection to add indexes to, custom indexes config
+    // Define collection to add indexes to, custom indexes config - for whatever annoying reason Firestore needs two....
     const collection = `projects/${projectId}/databases/(default)/collectionGroups/${collectionId}`;
-    const indexConfigOriginal = {
-      fields: [
-        { fieldPath: "status", order: "ASCENDING" },
-        { fieldPath: "createdAt", order: "ASCENDING" },
-        { fieldPath: "__name__", order: "ASCENDING" },
-      ],
-    };
-    const indexConfigEndOfDeck = {
-      fields: [
-        { fieldPath: "assignedTo", order: "ASCENDING" },
-        { fieldPath: "status", order: "ASCENDING" },
-        { fieldPath: "createdAt", order: "ASCENDING" },
-        { fieldPath: "__name__", order: "ASCENDING" },
-      ],
-    };
+    const indexConfigs = [
+      {
+        fields: [
+          { fieldPath: "status", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "ASCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" },
+        ],
+      },
+      {
+        fields: [
+          { fieldPath: "assignedTo", order: "ASCENDING" },
+          { fieldPath: "status", order: "ASCENDING" },
+          { fieldPath: "createdAt", order: "ASCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" },
+        ],
+      },
+    ];
 
     try {
-      // Create the indexes, for whatever annoying reason Firestore needs two....
-      await firestore.projects.databases.collectionGroups.indexes.create({
-        parent: collection,
-        requestBody: {
-          fields: indexConfigOriginal.fields,
-          queryScope: "COLLECTION",
-        },
-      });
+      // Get existing indexes
+      const { data: existingIndexes } =
+        await firestore.projects.databases.collectionGroups.indexes.list({
+          parent: collection,
+        });
 
-      await firestore.projects.databases.collectionGroups.indexes.create({
-        parent: collection,
-        requestBody: {
-          fields: indexConfigEndOfDeck.fields,
-          queryScope: "COLLECTION",
-        },
-      });
-    } catch (error) {
-      throw new Error(`Failed to create Firestore index: ${error}`);
+      // Iterate over each index configuration to ensure it exists
+      for (const indexConfig of indexConfigs) {
+        // Flag to track if the index already exists
+        let indexExists = false;
+
+        // Check if the index exists in the list of existing indexes
+        if (existingIndexes.indexes) {
+          for (const existing of existingIndexes.indexes) {
+            const existingFields = existing.fields || [];
+            const configFields = indexConfig.fields;
+
+            // Skip if the number of fields does not match
+            if (existingFields.length !== configFields.length) {
+              continue;
+            }
+
+            // Compare each field in the configuration with the existing index
+            let fieldsMatch = true;
+            for (let i = 0; i < configFields.length; i++) {
+              const configField = configFields[i];
+              const existingField = existingFields[i];
+
+              // Fields do not match, exit the loop as this is not a matching index
+              if (
+                configField.fieldPath !== existingField.fieldPath ||
+                configField.order !== existingField.order
+              ) {
+                fieldsMatch = false;
+                break;
+              }
+            }
+
+            // If all fields match, mark the index as existing and exit the loop
+            if (fieldsMatch) {
+              indexExists = true;
+              break;
+            }
+          }
+        }
+
+        // Create the index if it does not already exist
+        if (!indexExists) {
+          await firestore.projects.databases.collectionGroups.indexes.create({
+            parent: collection,
+            requestBody: {
+              fields: indexConfig.fields,
+              queryScope: "COLLECTION",
+            },
+          });
+        }
+      }
+    } catch (error: any) {
+      if (!error.message?.includes("already exists")) {
+        throw new Error(`Failed to create Firestore index: ${error}`);
+      }
     }
   };
 
