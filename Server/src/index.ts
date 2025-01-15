@@ -17,8 +17,8 @@ import { Parser } from "json2csv";
 /* -------------------------------------------------------------------------- */
 const app = express();
 const port = 3001;
-const reverseProxySubdomain = "/rafgroundtruth";
-// const reverseProxySubdomain = "";
+// const reverseProxySubdomain = "/rafgroundtruth";
+const reverseProxySubdomain = "";
 configureMiddleware(app); // Global middleware setup
 
 /* -------------------------------------------------------------------------- */
@@ -451,6 +451,51 @@ app.post(
       entriesAdded: entryCount,
       duplicates: duplicateCount,
       collectionAlreadyExisted: collectionAlreadyExists,
+    });
+  })
+);
+
+/* --------------------- Export each document to JSON --------------------- */
+app.post(
+  `${reverseProxySubdomain}/exportToJson`,
+  requireAuth,
+  Utils.asyncHandler(async (req: Request, res: Response) => {
+    // Grab project/db name from request
+    const { projectName } = req.body;
+    if (!projectName || typeof projectName !== "string") {
+      return res.status(400).json({ error: "Invalid or missing projectName" });
+    }
+
+    // Reference the Firestore collection, get all documents in the collection, make sure collection has documents to export
+    const collectionRef = db.collection(projectName);
+    const snapshot = await collectionRef.get();
+    if (snapshot.empty) {
+      return res.status(404).json({ error: "No documents found" });
+    }
+
+    // Prepare directory for JSON files
+    const outputDir = path.join(envVariables.IMAGES_PATH, projectName);
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // Export each document as a separate JSON file
+    snapshot.docs.forEach((doc) => {
+      const docData = {
+        id: doc.id,
+        ...doc.data(),
+      };
+
+      // Define file path for each document
+      const filePath = path.join(outputDir, `${doc.id}.json`);
+
+      // Write document data to JSON file
+      fs.writeFileSync(filePath, JSON.stringify(docData, null, 2));
+    });
+
+    res.status(200).json({
+      message: "JSON files created successfully",
+      outputDir,
     });
   })
 );

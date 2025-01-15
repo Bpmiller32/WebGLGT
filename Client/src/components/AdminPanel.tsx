@@ -83,7 +83,7 @@ export default defineComponent({
           throw new Error("Project selection is required.");
         }
 
-        const exportSuccess = await ApiHander.exportToCsv(
+        const exportSuccess = await ApiHander.exportToJson(
           apiUrl,
           selectedProject.value
         );
@@ -240,13 +240,14 @@ ${userCountsFormatted}
 
                     {/* Admin action 3 */}
                     <p class="mt-2 text-base text-gray-900">
-                      Export full results to csv
+                      Export full results to JSON
                     </p>
                     <p class="mt-2 text-sm text-gray-500">
-                      This will export all data for a specific project to a CSV
-                      file, stored in the directory defined by the IMAGES_PATH
-                      environment variable on the server. Note that any existing
-                      export will be overwritten.
+                      Exports all data for a specific project into JSON files,
+                      with each file corresponding to an individual image. The
+                      JSON files are saved in the same directory as the
+                      project’s image files on the server. Please note that any
+                      existing exports in this location will be overwritten.
                     </p>
                     <div class="mt-4 gap-4 flex justify-between">
                       <div

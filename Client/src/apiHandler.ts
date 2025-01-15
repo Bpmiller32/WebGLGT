@@ -157,6 +157,31 @@ export default class ApiHander {
     }
   }
 
+  // Exports the specified project to JSON as individual files.
+  public static async exportToJson(apiUrl: string, projectName: string) {
+    try {
+      // Retrieve the token from localStorage
+      const token = this.getTokenOrThrow();
+
+      // Make a POST request to the protected endpoint
+      const response = await axios.post(
+        `${apiUrl}/exportToJson`,
+        { projectName },
+        { headers: this.getAuthHeaders(token) }
+      );
+
+      // Check for success in response
+      if (response.status == 200) {
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      console.error("Error exporting project:", error);
+      return false;
+    }
+  }
+
   // Retrieves computed project statistics
   public static async getProjectStats(apiUrl: string, projectName: string) {
     try {

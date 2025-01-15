@@ -94,54 +94,29 @@ export default class Utils {
     ];
 
     try {
-      // Get existing indexes
+      // Retrieve existing indexes
       const { data: existingIndexes } =
         await firestore.projects.databases.collectionGroups.indexes.list({
           parent: collection,
         });
 
-      // Iterate over each index configuration to ensure it exists
       for (const indexConfig of indexConfigs) {
-        // Flag to track if the index already exists
-        let indexExists = false;
+        // Check if the index already exists
+        const isExistingIndex = existingIndexes?.indexes?.some((existing) => {
+          const existingFields = existing.fields || [];
+          if (existingFields.length !== indexConfig.fields.length) return false;
 
-        // Check if the index exists in the list of existing indexes
-        if (existingIndexes.indexes) {
-          for (const existing of existingIndexes.indexes) {
-            const existingFields = existing.fields || [];
-            const configFields = indexConfig.fields;
+          return indexConfig.fields.every((configField, i) => {
+            const existingField = existingFields[i];
+            return (
+              configField.fieldPath === existingField.fieldPath &&
+              configField.order === existingField.order
+            );
+          });
+        });
 
-            // Skip if the number of fields does not match
-            if (existingFields.length !== configFields.length) {
-              continue;
-            }
-
-            // Compare each field in the configuration with the existing index
-            let fieldsMatch = true;
-            for (let i = 0; i < configFields.length; i++) {
-              const configField = configFields[i];
-              const existingField = existingFields[i];
-
-              // Fields do not match, exit the loop as this is not a matching index
-              if (
-                configField.fieldPath !== existingField.fieldPath ||
-                configField.order !== existingField.order
-              ) {
-                fieldsMatch = false;
-                break;
-              }
-            }
-
-            // If all fields match, mark the index as existing and exit the loop
-            if (fieldsMatch) {
-              indexExists = true;
-              break;
-            }
-          }
-        }
-
-        // Create the index if it does not already exist
-        if (!indexExists) {
+        // Create the index if it does not exist
+        if (!isExistingIndex) {
           await firestore.projects.databases.collectionGroups.indexes.create({
             parent: collection,
             requestBody: {
@@ -153,7 +128,7 @@ export default class Utils {
       }
     } catch (error: any) {
       if (!error.message?.includes("already exists")) {
-        throw new Error(`Failed to create Firestore index: ${error}`);
+        throw new Error(`Error creating Firestore index: ${error}`);
       }
     }
   };

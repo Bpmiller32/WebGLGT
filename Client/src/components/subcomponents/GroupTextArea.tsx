@@ -67,6 +67,11 @@ export default defineComponent({
         },
         configurable: true,
       });
+
+      // Add focus event listener to emit changeSelectionGroup
+      element.addEventListener("focus", () => {
+        Emitter.emit("changeSelectionGroup", props.id);
+      });
     });
 
     // Cleanup, restore the original value descriptor on unmount
@@ -74,9 +79,15 @@ export default defineComponent({
       const element = document.getElementById(
         `dashboardTextarea${props.id}`
       ) as HTMLTextAreaElement;
+      // Restore the original value descriptor
       if (element && originalDescriptor) {
         Object.defineProperty(element, "value", originalDescriptor);
       }
+
+      // Remove the focus event listener
+      element?.removeEventListener("focus", () => {
+        Emitter.emit("changeSelectionGroup", props.id);
+      });
     });
 
     return () => (
@@ -97,7 +108,7 @@ export default defineComponent({
             Emitter.emit("changeSelectionGroup", props.id);
           }}
           class={[
-            "bg-transparent text-gray-100 text-sm leading-6 resize-none w-full rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400",
+            "min-w-96 max-w-96 min-h-10 resize bg-transparent text-gray-100 text-sm leading-6 rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400",
             props.isActive &&
               "ring-2 ring-inset ring-indigo-600 focus:ring-[2.3px] focus:ring-indigo-600 focus:ring-inset",
           ]}
