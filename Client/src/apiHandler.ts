@@ -412,6 +412,9 @@ export default class ApiHander {
     }
     webglExperience.input.previousDashboardImageName = image.imageName;
 
+    // Send back the rest of the image so that textClassification buttons can more simply be set back in EditorDashboard
+    return image;
+
     // Note: Not revoking URL here since we need may it for downloading later
   }
 

@@ -3,9 +3,9 @@ import {
   ScissorsIcon,
   MagnifyingGlassCircleIcon,
   ArrowUturnLeftIcon,
-  ArrowUpCircleIcon,
   BackwardIcon,
   ForwardIcon,
+  BookmarkIcon,
 } from "@heroicons/vue/16/solid";
 
 export default defineComponent({
@@ -49,9 +49,9 @@ export default defineComponent({
             <ArrowUturnLeftIcon class="h-5 w-5 text-gray-100 group-hover:text-indigo-100 duration-300" />
           );
 
-        case "Send":
+        case "Save":
           return (
-            <ArrowUpCircleIcon class="h-5 w-5 text-gray-100 transition-colors group-hover:text-indigo-100 duration-300" />
+            <BookmarkIcon class="h-5 w-5 text-gray-100 transition-colors group-hover:text-indigo-100 duration-300" />
           );
         case "Prev":
           return (

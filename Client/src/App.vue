@@ -50,9 +50,7 @@ const handleStartApp = async () => {
       numberOfSelectionGroups: 3,
       tags: ["Vendor Only"],
     });
-  }
-
-  if (projectName == "usps") {
+  } else if (projectName == "usps") {
     Emitter.emit("setEditorDashboard", {
       numberOfSelectionGroups: 1,
       tags: ["RTS", "Form 3547", "FWD", "DBL Feed"],
@@ -64,6 +62,10 @@ const handleStartApp = async () => {
 
   // Handle 1st image pull, future image pulls will be handled by events in EditorDashboard
   await ApiHandler.handleNextImage(apiUrl, webglExperience);
+
+  // Change to first selection group here, focus the cursor in the textArea
+  Emitter.emit("changeSelectionGroup", 0);
+  webglExperience.input.dashboardTextarea0?.focus();
 
   // Get Vision API key from backend
   webglExperience.resources.apiKey = await ApiHandler.getApiKey(apiUrl);

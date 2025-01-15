@@ -1,0 +1,22 @@
+{
+  "id": "iAgVgnpSPc5yq7UYZmEt",
+  "imageName": "5416064_top_1_A_275.png",
+  "imageType": "",
+  "rotation": 0,
+  "timeOnImage": 0,
+  "groupText0": "",
+  "groupCoordinates0": "",
+  "groupText1": "",
+  "groupCoordinates1": "",
+  "groupText2": "",
+  "groupCoordinates2": "",
+  "assignedTo": null,
+  "status": "unclaimed",
+  "createdAt": {
+    "_seconds": 1736894323,
+    "_nanoseconds": 215000000
+  },
+  "claimedAt": null,
+  "finishedAt": null,
+  "project": "iom-hw"
+}

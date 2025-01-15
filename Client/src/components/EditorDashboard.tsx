@@ -10,6 +10,7 @@ import {
   ArrowLeftEndOnRectangleIcon,
   QuestionMarkCircleIcon,
 } from "@heroicons/vue/16/solid";
+import * as THREE from "three";
 
 export default defineComponent({
   props: {
@@ -79,9 +80,6 @@ export default defineComponent({
           { value: "", isActive: false },
         ];
       }
-
-      // Ensure the first group is active
-      Emitter.emit("changeSelectionGroup", 0);
     });
     Emitter.on("fillInForm", async () => {
       await submitToDb();
@@ -133,18 +131,22 @@ export default defineComponent({
     };
 
     const loadImage = async (direction: "next" | "prev") => {
+      let prevImage = null;
+
       if (direction === "next") {
         await ApiHandler.handleNextImage(apiUrl, props.webglExperience);
       } else {
-        await ApiHandler.handlePrevImage(apiUrl, props.webglExperience);
+        prevImage =
+          (await ApiHandler.handlePrevImage(apiUrl, props.webglExperience)) ||
+          null;
       }
 
-      // Reset to group 0 after loading new image
-      activateGroup(0);
-
-      // Reset classification tags to default (MP)
+      // Update classification tags based on direction and image type
       textClassificationTags.value.forEach((tag) => {
-        tag.active = tag.type === "MP";
+        tag.active =
+          direction === "prev"
+            ? tag.type.toLowerCase() === prevImage?.imageType?.toLowerCase()
+            : tag.type === "MP";
       });
     };
 
@@ -155,34 +157,58 @@ export default defineComponent({
       );
       const imageType = activeMailType ? activeMailType.type.toLowerCase() : "";
 
-      // Dynamically prepare group text and coordinates
-      const groupTexts = Object.fromEntries(
-        groupTextAreas.value.map((group, index) => [
-          `groupText${index}`,
-          group.value || "",
-        ])
-      );
+      // Define interfaces for our data structures
+      interface Coordinate {
+        x: number;
+        y: number;
+      }
 
-      // Gather selection group coordinates
-      const groupCoordinates = Object.fromEntries(
-        groupTextAreas.value.map((_, index) => {
-          // Dynamically access the property and cast its type
-          const key = `selectionGroupPixelCoordinates${index}`;
-          const coordinates = (
-            (
-              props.webglExperience.world.selectionGroupManager as Record<
-                string,
-                any
-              >
-            )?.[key] || []
-          ).map((coord: { x: number; y: number }) => ({
-            x: Number(coord.x.toFixed(4)),
-            y: Number(coord.y.toFixed(4)),
-          }));
+      interface SelectionGroup {
+        text: string;
+        coordinates: Coordinate[] | string;
+        meshes: { [key: string]: unknown };
+        type: string;
+      }
 
-          return [`groupCoordinates${index}`, coordinates];
-        })
-      );
+      interface SelectionGroups {
+        group0: SelectionGroup;
+        group1: SelectionGroup;
+        group2: SelectionGroup;
+      }
+
+      // Type assertion for selectionGroupManager
+      const selectionGroupManager = props.webglExperience.world
+        .selectionGroupManager as {
+        selectionGroupPixelCoordinates0: THREE.Vector2[];
+        selectionGroupPixelCoordinates1: THREE.Vector2[];
+        selectionGroupPixelCoordinates2: THREE.Vector2[];
+      };
+
+      // Prepare selection groups data
+      const selectionGroups: SelectionGroups = {
+        group0: { text: "", coordinates: "", meshes: {}, type: "" },
+        group1: { text: "", coordinates: "", meshes: {}, type: "" },
+        group2: { text: "", coordinates: "", meshes: {}, type: "" },
+      };
+
+      // Fill in the data for each group
+      groupTextAreas.value.forEach((group, index) => {
+        const key =
+          `selectionGroupPixelCoordinates${index}` as keyof typeof selectionGroupManager;
+        const rawCoordinates = selectionGroupManager[key] || [];
+
+        const coordinates = rawCoordinates.map((coord) => ({
+          x: parseFloat(coord.x.toFixed(4)),
+          y: parseFloat(coord.y.toFixed(4)),
+        }));
+
+        selectionGroups[`group${index}` as keyof SelectionGroups] = {
+          text: group.value || "",
+          coordinates: coordinates.length > 0 ? coordinates : "",
+          meshes: {},
+          type: "",
+        };
+      });
 
       // Prepare update data for request body
       const updateData = {
@@ -193,9 +219,7 @@ export default defineComponent({
         timeOnImage:
           props.webglExperience.world.imageContainer?.stopwatch.elapsedTime ||
           0,
-
-        ...groupTexts,
-        ...groupCoordinates,
+        selectionGroups,
       };
 
       // Send the update request
@@ -219,7 +243,7 @@ export default defineComponent({
             </div>
             <div class="flex items-center w-full">
               <p class="mr-1 font-medium text-gray-100 text-xs text-ellipsis">
-                GT count:
+                GT save count:
               </p>
               <p class="mr-4 self-end overflow-hidden font-medium text-gray-100 text-xs text-ellipsis whitespace-nowrap">
                 {gtSavedCount.value}
@@ -267,7 +291,7 @@ export default defineComponent({
                 showText={true}
               />
               <ActionButton
-                buttonType="Send"
+                buttonType="Save"
                 roundLeftCorner={false}
                 roundRightCorner={true}
                 handleClick={() => Emitter.emit("fillInForm")}

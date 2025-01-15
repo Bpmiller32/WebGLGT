@@ -33,3 +33,4 @@ Server/tsconfig.tsbuildinfo
 Client/.env
 Server/.env
 Server/googlecloudServiceAccount.json
+Client/repomix-output.txt

@@ -5,6 +5,10 @@ export default {
   content: ["./index.html", "./src/**/*.{vue,js,ts,jsx,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["Consolas", "monospace"],
+        mono: ["Consolas", "monospace"], // For any monospace-specific classes
+      },
       keyframes: {
         shake: {
           "0%": { transform: "translateX(0)" },
