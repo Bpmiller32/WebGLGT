@@ -19,7 +19,8 @@
     "googleapis": "^144.0.0",
     "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",
-    "playwright": "^1.47.0"
+    "playwright": "^1.47.0",
+    "sharp": "^0.33.5"
   },
   "devDependencies": {
     "@types/body-parser": "^1.19.5",

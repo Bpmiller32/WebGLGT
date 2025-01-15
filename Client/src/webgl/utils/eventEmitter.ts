@@ -30,7 +30,7 @@ type EventMap = {
   resetImage: void;
   fastImageClassify: "mp" | "hw" | "bad";
   // api events/template events
-  loadedFromApi: void;
+  loadedFromApi: boolean;
   loadedFromFile: void;
   fillInForm: void;
   setEditorDashboard: { numberOfSelectionGroups: number; tags: string[] };

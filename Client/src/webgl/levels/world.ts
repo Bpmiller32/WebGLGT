@@ -61,9 +61,9 @@ export default class World {
       this.selectionGroupManager?.mouseUp(event);
     });
 
-    Emitter.on("loadedFromApi", () => {
+    Emitter.on("loadedFromApi", (resetGui: boolean) => {
       this.imageContainer?.destroy();
-      this.imageContainer?.setNewImage();
+      this.imageContainer?.setNewImage(resetGui);
 
       this.selectionGroupManager?.destroy();
 

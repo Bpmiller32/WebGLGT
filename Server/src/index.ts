@@ -287,6 +287,12 @@ app.post(
         const entryRef = db.collection(projectName).doc(prevEntryId);
         const entryDoc = await transaction.get(entryRef);
 
+        // Check if the document exists
+        if (!entryDoc.exists) {
+          return null;
+        }
+        const entryData = entryDoc.data();
+
         // Set the candidate entry to the user's profile, return from internal function
         transaction.update(entryRef, {
           assignedTo: username,
@@ -299,7 +305,14 @@ app.post(
           { merge: true }
         );
 
-        return { id: prevEntryId, imageName: entryDoc.data()?.imageName };
+        return {
+          id: prevEntryId,
+          imageName: entryData?.imageName,
+          groupText0: entryData?.groupText0 || "",
+          groupText1: entryData?.groupText1 || "",
+          groupText2: entryData?.groupText2 || "",
+          imageType: entryData?.imageType || "mp", // Default to "mp" if not set
+        };
       }
     );
 

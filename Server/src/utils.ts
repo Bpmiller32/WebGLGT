@@ -4,13 +4,22 @@ import path from "path";
 import { google } from "googleapis";
 import { envVariables } from "./envConfig";
 import { db } from "./firebaseAdmin";
+import sharp from "sharp";
 
 export default class Utils {
   // Reads and validates the presence of an image file, returns its Base64 encoded string.
   public static readImageAsBase64 = async (imagePath: string) => {
     try {
-      // Directly specify base64 encoding
-      return await fs.readFile(imagePath, { encoding: "base64" });
+      const fileBuffer = await fs.readFile(imagePath);
+
+      if (imagePath.toLowerCase().endsWith(".tif")) {
+        // Convert .tif to .png using Sharp
+        const pngBuffer = await sharp(fileBuffer).png().toBuffer();
+        return pngBuffer.toString("base64");
+      }
+
+      // For other formats, directly encode as base64
+      return fileBuffer.toString("base64");
     } catch (error) {
       throw new Error(`Image not found or unreadable at path: ${imagePath}`);
     }
@@ -55,7 +64,7 @@ export default class Utils {
     }
   };
 
-  // Creates necessary indices for db if they don't already exist
+  // Creates necessary indices for Firestore if they don't already exist
   public static createFirestoreIndex = async (
     projectId: string,
     collectionId: string
@@ -74,7 +83,7 @@ export default class Utils {
     });
 
     // Define collection to add indexes to, custom indexes config - for whatever annoying reason Firestore needs two....
-    const collection = `projects/${projectId}/databases/(default)/collectionGroups/${collectionId}`;
+    const collectionPath = `projects/${projectId}/databases/(default)/collectionGroups/${collectionId}`;
     const indexConfigs = [
       {
         fields: [
@@ -94,33 +103,33 @@ export default class Utils {
     ];
 
     try {
-      // Retrieve existing indexes
+      // Retrieve existing indexes for the collection group
       const { data: existingIndexes } =
         await firestore.projects.databases.collectionGroups.indexes.list({
-          parent: collection,
+          parent: collectionPath,
         });
 
-      for (const indexConfig of indexConfigs) {
-        // Check if the index already exists
+      // Ensure each index configuration is checked and created if needed
+      for (const config of indexConfigs) {
         const isExistingIndex = existingIndexes?.indexes?.some((existing) => {
           const existingFields = existing.fields || [];
-          if (existingFields.length !== indexConfig.fields.length) return false;
+          if (existingFields.length !== config.fields.length) return false;
 
-          return indexConfig.fields.every((configField, i) => {
+          return config.fields.every((fieldConfig, i) => {
             const existingField = existingFields[i];
             return (
-              configField.fieldPath === existingField.fieldPath &&
-              configField.order === existingField.order
+              fieldConfig.fieldPath === existingField.fieldPath &&
+              fieldConfig.order === existingField.order
             );
           });
         });
 
-        // Create the index if it does not exist
+        // Create the index if it doesn't already exist
         if (!isExistingIndex) {
           await firestore.projects.databases.collectionGroups.indexes.create({
-            parent: collection,
+            parent: collectionPath,
             requestBody: {
-              fields: indexConfig.fields,
+              fields: config.fields,
               queryScope: "COLLECTION",
             },
           });
@@ -178,6 +187,46 @@ export default class Utils {
       directoryPath,
       imageName
     );
-    return Utils.readImageAsBase64(imagePath);
+
+    const base64Data = await Utils.readImageAsBase64(imagePath);
+
+    // Check if the Base64 data is valid
+    if (!base64Data || typeof base64Data !== "string") {
+      throw new Error("Failed to encode the image as Base64.");
+    }
+
+    const mimeType = imageName.toLowerCase().endsWith(".tif")
+      ? "image/png"
+      : Utils.getMimeType(imageName);
+
+    const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+    // // Save the data URL to a file for debugging
+    // const debugFilePath = path.join(
+    //   envVariables.IMAGES_PATH,
+    //   "debug_dataUrl.txt"
+    // );
+    // await fs.writeFile(debugFilePath, dataUrl, { encoding: "utf8" });
+
+    return dataUrl;
   };
+
+  // Helper method to determine MIME type
+  private static getMimeType(imageName: string) {
+    const extension = path.extname(imageName).toLowerCase();
+    switch (extension) {
+      case ".png":
+        return "image/png";
+      case ".jpg":
+      case ".jpeg":
+        return "image/jpeg";
+      case ".gif":
+        return "image/gif";
+      case ".bmp":
+        return "image/bmp";
+      default:
+        // Default MIME type
+        return "application/octet-stream";
+    }
+  }
 }

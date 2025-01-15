@@ -324,7 +324,7 @@ export default class ImageContainer {
   }
 
   /* ------------------------------ Tick methods ------------------------------ */
-  public setNewImage() {
+  public setNewImage(resetGui: boolean = true) {
     // Clean up previous image's object URL if it exists
     if (this.resources.currentImageUrl) {
       URL.revokeObjectURL(this.resources.currentImageUrl);
@@ -342,9 +342,11 @@ export default class ImageContainer {
     this.stopwatch.reset();
     this.stopwatch.start();
 
-    this.input.dashboardTextarea0!.value = "";
-    this.input.dashboardTextarea1!.value = "";
-    this.input.dashboardTextarea2!.value = "";
+    if (resetGui) {
+      this.input.dashboardTextarea0!.value = "";
+      this.input.dashboardTextarea1!.value = "";
+      this.input.dashboardTextarea2!.value = "";
+    }
 
     this.isRotationDisabled = false;
   }

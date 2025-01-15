@@ -26,6 +26,7 @@ export default defineComponent({
     const value = ref<string>("");
     let isUpdating = false;
     let originalDescriptor: PropertyDescriptor | undefined;
+    let resizeObserver: ResizeObserver | null;
 
     // Setup value property interceptor on mount
     onMounted(() => {
@@ -72,6 +73,14 @@ export default defineComponent({
       element.addEventListener("focus", () => {
         Emitter.emit("changeSelectionGroup", props.id);
       });
+
+      // Use ResizeObserver to detect resizing
+      resizeObserver = new ResizeObserver(() => {
+        Emitter.emit("changeSelectionGroup", props.id);
+        element.focus();
+      });
+
+      resizeObserver.observe(element);
     });
 
     // Cleanup, restore the original value descriptor on unmount
@@ -88,6 +97,10 @@ export default defineComponent({
       element?.removeEventListener("focus", () => {
         Emitter.emit("changeSelectionGroup", props.id);
       });
+
+      // Disconnect the resize observer
+      resizeObserver?.disconnect();
+      resizeObserver = null;
     });
 
     return () => (

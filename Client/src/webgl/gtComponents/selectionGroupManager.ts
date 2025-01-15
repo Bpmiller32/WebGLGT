@@ -531,11 +531,11 @@ export default class SelectionGroupManager {
       combinedMesh = CSG.union(combinedMesh, selectionMeshes[i]);
     }
 
-    // Clean up the original selection meshes, add the only existing clipBox in case of further clips
-    for (const selection of selectionMeshes) {
-      GtUtils.disposeMeshHelper(selection);
-    }
-    selectionMeshes.length = 0;
+    // // Clean up the original selection meshes, add the only existing clipBox in case of further clips
+    // for (const selection of selectionMeshes) {
+    //   GtUtils.disposeMeshHelper(selection);
+    // }
+    // selectionMeshes.length = 0;
 
     // Push the combinedMesh back to the same plane as the imageContainer mesh, update it's local position matrix for CSG
     combinedMesh.position.z = 0;

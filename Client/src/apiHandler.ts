@@ -284,7 +284,14 @@ export default class ApiHander {
       );
 
       // Extract the response data, imageBlob is Base64 string since the content type on the response was json
-      const { imageName, imageBlob } = response.data;
+      const {
+        imageName,
+        imageBlob,
+        groupText0,
+        groupText1,
+        groupText2,
+        imageType,
+      } = response.data;
       if (!imageBlob) {
         throw new Error("No valid imageBlob in response");
       }
@@ -295,6 +302,12 @@ export default class ApiHander {
         imageName: imageName,
         imageBlob: blobUrl,
         blob: blob,
+        groupTexts: {
+          groupText0: groupText0 || "",
+          groupText1: groupText1 || "",
+          groupText2: groupText2 || "",
+        },
+        imageType: imageType || "mp",
       };
     } catch (error) {
       console.error(
@@ -361,13 +374,37 @@ export default class ApiHander {
     }
 
     // Start image load into webgl scene as a texture
-    webglExperience.resources.loadGtImageFromApi(image.imageBlob, image.blob);
+    webglExperience.resources.loadGtImageFromApi(
+      image.imageBlob,
+      image.blob,
+      false
+    );
 
     // Set image name in EditorDashboard if reference is found, setting with elementId to save complicated ref passing
     const imageNameLabel = document.getElementById("gtImageName");
     if (imageNameLabel) {
       imageNameLabel.innerText = image.imageName;
     }
+
+    // Iterate over the textAreas to populate with previous groupTexts stored in db
+    const textAreas = [
+      "dashboardTextarea0",
+      "dashboardTextarea1",
+      "dashboardTextarea2",
+    ];
+    const groupTexts = [
+      image.groupTexts.groupText0,
+      image.groupTexts.groupText1,
+      image.groupTexts.groupText2,
+    ];
+    textAreas.forEach((id, index) => {
+      const textArea = document.getElementById(
+        id
+      ) as HTMLTextAreaElement | null;
+      if (textArea) {
+        textArea.value = groupTexts[index];
+      }
+    });
 
     // Check if we're loading the same image again
     if (webglExperience.input.previousDashboardImageName === image.imageName) {
@@ -458,8 +495,13 @@ export default class ApiHander {
 
   //  Decodes a base64-encoded image string into a Blob and object URL.
   private static decodeBase64Image(imageBlob: string) {
+    // Strip the prefix (e.g., "data:image/png;base64,") if present
+    const base64 = imageBlob.includes(",")
+      ? imageBlob.split(",")[1]
+      : imageBlob;
+
     // Decode Base64 to binary
-    const binary = atob(imageBlob);
+    const binary = atob(base64);
 
     // Convert binary to array for Blob constructor
     const array = new Uint8Array(binary.length);
