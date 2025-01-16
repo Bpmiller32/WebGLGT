@@ -92,12 +92,22 @@ export default defineComponent({
       activateGroup(0);
     });
     Emitter.on("gotoNextImage", async () => {
-      await loadImage("next");
+      await ApiHandler.handleNextImage(apiUrl, props.webglExperience);
+      textClassificationTags.value.forEach((tag) => {
+        tag.active = tag.type === "MP"; // For next image, set MP as active by default
+      });
+
       activateGroup(0);
     });
     Emitter.on("gotoPrevImage", async () => {
-      await loadImage("prev");
+      await ApiHandler.handlePrevImage(apiUrl, props.webglExperience);
       activateGroup(0);
+    });
+
+    Emitter.on("setClassificationTags", (imageType: string) => {
+      textClassificationTags.value.forEach((tag) => {
+        tag.active = tag.type.toLowerCase() === imageType.toLowerCase();
+      });
     });
     Emitter.on("changeSelectionGroup", (groupNumber) => {
       activateGroup(groupNumber);
@@ -130,26 +140,6 @@ export default defineComponent({
       });
     };
 
-    const loadImage = async (direction: "next" | "prev") => {
-      let prevImage = null;
-
-      if (direction === "next") {
-        await ApiHandler.handleNextImage(apiUrl, props.webglExperience);
-      } else {
-        prevImage =
-          (await ApiHandler.handlePrevImage(apiUrl, props.webglExperience)) ||
-          null;
-      }
-
-      // Update classification tags based on direction and image type
-      textClassificationTags.value.forEach((tag) => {
-        tag.active =
-          direction === "prev"
-            ? tag.type.toLowerCase() === prevImage?.imageType?.toLowerCase()
-            : tag.type === "MP";
-      });
-    };
-
     const submitToDb = async () => {
       // Determine the active mail type
       const activeMailType = textClassificationTags.value.find(
@@ -163,10 +153,23 @@ export default defineComponent({
         y: number;
       }
 
+      interface MeshData {
+        id: string;
+        position: {
+          x: number;
+          y: number;
+          z: number;
+        };
+        size: {
+          width: number;
+          height: number;
+        };
+      }
+
       interface SelectionGroup {
         text: string;
         coordinates: Coordinate[] | string;
-        meshes: { [key: string]: unknown };
+        meshes: { [key: string]: MeshData };
         type: string;
       }
 
@@ -182,6 +185,9 @@ export default defineComponent({
         selectionGroupPixelCoordinates0: THREE.Vector2[];
         selectionGroupPixelCoordinates1: THREE.Vector2[];
         selectionGroupPixelCoordinates2: THREE.Vector2[];
+        selectionGroup0MeshData: MeshData[];
+        selectionGroup1MeshData: MeshData[];
+        selectionGroup2MeshData: MeshData[];
       };
 
       // Prepare selection groups data
@@ -193,19 +199,32 @@ export default defineComponent({
 
       // Fill in the data for each group
       groupTextAreas.value.forEach((group, index) => {
-        const key =
+        const coordKey =
           `selectionGroupPixelCoordinates${index}` as keyof typeof selectionGroupManager;
-        const rawCoordinates = selectionGroupManager[key] || [];
+        const rawCoordinates = (selectionGroupManager[coordKey] ||
+          []) as THREE.Vector2[];
 
         const coordinates = rawCoordinates.map((coord) => ({
-          x: parseFloat(coord.x.toFixed(4)),
-          y: parseFloat(coord.y.toFixed(4)),
+          x: Number(coord.x.toFixed(4)),
+          y: Number(coord.y.toFixed(4)),
         }));
+
+        // Get mesh data from selectionGroupManager
+        const meshDataKey =
+          `selectionGroup${index}MeshData` as keyof typeof selectionGroupManager;
+        const meshData = selectionGroupManager[meshDataKey] as MeshData[];
+        const meshes = meshData.reduce<{ [key: string]: MeshData }>(
+          (acc, mesh) => {
+            acc[mesh.id] = mesh;
+            return acc;
+          },
+          {}
+        );
 
         selectionGroups[`group${index}` as keyof SelectionGroups] = {
           text: group.value || "",
           coordinates: coordinates.length > 0 ? coordinates : "",
-          meshes: {},
+          meshes,
           type: "",
         };
       });

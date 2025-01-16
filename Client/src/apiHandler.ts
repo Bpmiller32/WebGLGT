@@ -2,7 +2,20 @@ import Emitter from "./webgl/utils/eventEmitter";
 import Experience from "./webgl/experience";
 import axios from "axios";
 
-export default class ApiHander {
+interface MeshData {
+  id: string;
+  position: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  size: {
+    width: number;
+    height: number;
+  };
+}
+
+export default class ApiHandler {
   // Pings the Server
   public static async pingServer(apiUrl: string) {
     try {
@@ -291,6 +304,8 @@ export default class ApiHander {
         groupText1,
         groupText2,
         imageType,
+        selectionGroups,
+        rotation,
       } = response.data;
       if (!imageBlob) {
         throw new Error("No valid imageBlob in response");
@@ -308,6 +323,12 @@ export default class ApiHander {
           groupText2: groupText2 || "",
         },
         imageType: imageType || "mp",
+        selectionGroups: selectionGroups || {
+          group0: { meshes: {} },
+          group1: { meshes: {} },
+          group2: { meshes: {} },
+        },
+        rotation: rotation || 0, // Default to 0 if not provided
       };
     } catch (error) {
       console.error(
@@ -328,7 +349,7 @@ export default class ApiHander {
     const { projectName, directoryPath } = this.getProjectInfoOrThrow();
 
     // Pull next viable image from project db
-    const image = await ApiHander.next(apiUrl, projectName, directoryPath);
+    const image = await ApiHandler.next(apiUrl, projectName, directoryPath);
     if (!image) {
       Emitter.emit("appError", "No image retrieved from the server");
       return;
@@ -364,7 +385,7 @@ export default class ApiHander {
     const { projectName, directoryPath } = this.getProjectInfoOrThrow();
 
     // Pull previous image from project db
-    const image = await ApiHander.prev(apiUrl, projectName, directoryPath);
+    const image = await ApiHandler.prev(apiUrl, projectName, directoryPath);
     if (!image) {
       Emitter.emit(
         "appError",
@@ -373,49 +394,32 @@ export default class ApiHander {
       return;
     }
 
-    // Start image load into webgl scene as a texture
+    // Set up event listener for image load completion
+    const handleImageLoaded = this.setupImageLoadedHandler(
+      image,
+      webglExperience
+    );
+    Emitter.on("loadedFromApi", handleImageLoaded);
+
+    // Load the image into the WebGL scene
     webglExperience.resources.loadGtImageFromApi(
       image.imageBlob,
       image.blob,
-      false
+      false,
+      image.rotation
     );
 
-    // Set image name in EditorDashboard if reference is found, setting with elementId to save complicated ref passing
-    const imageNameLabel = document.getElementById("gtImageName");
-    if (imageNameLabel) {
-      imageNameLabel.innerText = image.imageName;
-    }
+    // Update the UI with the db info
+    this.updateDashboard(
+      image.imageName,
+      image.selectionGroups,
+      image.imageType
+    );
 
-    // Iterate over the textAreas to populate with previous groupTexts stored in db
-    const textAreas = [
-      "dashboardTextarea0",
-      "dashboardTextarea1",
-      "dashboardTextarea2",
-    ];
-    const groupTexts = [
-      image.groupTexts.groupText0,
-      image.groupTexts.groupText1,
-      image.groupTexts.groupText2,
-    ];
-    textAreas.forEach((id, index) => {
-      const textArea = document.getElementById(
-        id
-      ) as HTMLTextAreaElement | null;
-      if (textArea) {
-        textArea.value = groupTexts[index];
-      }
-    });
+    // Step 7: Check for duplicate image load
+    this.checkForDuplicateImage(image.imageName, webglExperience);
 
-    // Check if we're loading the same image again
-    if (webglExperience.input.previousDashboardImageName === image.imageName) {
-      Emitter.emit("appWarning", "Previous image is the same as this image");
-    }
-    webglExperience.input.previousDashboardImageName = image.imageName;
-
-    // Send back the rest of the image so that textClassification buttons can more simply be set back in EditorDashboard
-    return image;
-
-    // Note: Not revoking URL here since we need may it for downloading later
+    // Note: Not revoking URL here since we need it for downloading later
   }
 
   // Sends updated image data to the server (Firestore).
@@ -530,5 +534,95 @@ export default class ApiHander {
     }
 
     return { projectName, directoryPath };
+  }
+
+  // Sets up the event listener for handling the loaded image
+  private static setupImageLoadedHandler(
+    image: any,
+    webglExperience: Experience
+  ): (event: { resetGui: boolean; rotation?: number }) => void {
+    const handler = (event: { resetGui: boolean; rotation?: number }) => {
+      // Update rotation if provided
+      if (event.rotation !== undefined) {
+        const imageContainer = webglExperience.world.imageContainer;
+        if (imageContainer?.mesh) {
+          const rotationInRadians = event.rotation * (Math.PI / 180);
+          imageContainer.targetRotation.y = rotationInRadians;
+        }
+      }
+
+      // Recreate meshes for each selection group
+      const selectionManager = webglExperience.world.selectionGroupManager;
+      if (selectionManager && image.selectionGroups) {
+        this.recreateSelectionMeshes(selectionManager, image.selectionGroups);
+      }
+
+      // Remove the event listener after it fires
+      Emitter.off("loadedFromApi", handler);
+    };
+    return handler;
+  }
+
+  // Recreates meshes for the selection groups.
+  private static recreateSelectionMeshes(
+    selectionManager: any,
+    selectionGroups: any
+  ) {
+    ["group0", "group1", "group2"].forEach((groupKey, index) => {
+      const meshes = Object.values(
+        selectionGroups[groupKey]?.meshes || {}
+      ) as MeshData[];
+      if (meshes.length > 0) {
+        selectionManager.recreateMeshesFromData(index, meshes);
+      }
+    });
+  }
+
+  // Updates the image name in the UI.
+  private static updateDashboard(
+    imageName: string,
+    selectionGroups: any,
+    imageType: string
+  ) {
+    // Update UI with image name
+    const imageNameLabel = document.getElementById("gtImageName");
+    if (imageNameLabel) {
+      imageNameLabel.innerText = imageName;
+    }
+
+    // Populate text areas with group texts from the database
+    const textAreas = [
+      "dashboardTextarea0",
+      "dashboardTextarea1",
+      "dashboardTextarea2",
+    ];
+    const groupTexts = [
+      selectionGroups.group0?.text || "",
+      selectionGroups.group1?.text || "",
+      selectionGroups.group2?.text || "",
+    ];
+
+    textAreas.forEach((id, index) => {
+      const textArea = document.getElementById(
+        id
+      ) as HTMLTextAreaElement | null;
+      if (textArea) {
+        textArea.value = groupTexts[index];
+      }
+    });
+
+    // Set classification tags
+    Emitter.emit("setClassificationTags", imageType);
+  }
+
+  // Checks if the loaded image is the same as the current image.
+  private static checkForDuplicateImage(
+    imageName: string,
+    webglExperience: Experience
+  ) {
+    if (webglExperience.input.previousDashboardImageName === imageName) {
+      Emitter.emit("appWarning", "Previous image is the same as this image");
+    }
+    webglExperience.input.previousDashboardImageName = imageName;
   }
 }

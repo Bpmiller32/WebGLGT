@@ -30,10 +30,11 @@ type EventMap = {
   resetImage: void;
   fastImageClassify: "mp" | "hw" | "bad";
   // api events/template events
-  loadedFromApi: boolean;
+  loadedFromApi: { resetGui: boolean; rotation?: number };
   loadedFromFile: void;
   fillInForm: void;
   setEditorDashboard: { numberOfSelectionGroups: number; tags: string[] };
+  setClassificationTags: string;
   gotoNextImage: void;
   gotoPrevImage: void;
 };

@@ -146,7 +146,7 @@ app.post(
     // Updates lastAccessedTime for user
     await Utils.updateUserTimestamp(username);
 
-    // Use a Firestore transaction to atomically query
+    // Get db result - use a Firestore transaction to atomically query
     const dbResult = await db.runTransaction<TransactionResult | null>(
       async (transaction: Transaction) => {
         // Get user that sent request
@@ -167,75 +167,74 @@ app.post(
           history.shift();
         }
 
-        const entriesRef = db.collection(projectName);
-
-        // 1) Try to find an unclaimed entry
-        let snapshot = await transaction.get(
-          entriesRef
+        // Define queries to fetch entries based on priority
+        const queries = [
+          // 1) Fetch unclaimed entries (highest priority)
+          db
+            .collection(projectName)
             .where("status", "==", "unclaimed")
             .orderBy("createdAt", "asc")
-            .limit(1)
-        );
-
-        if (!snapshot.empty) {
-          const entryDoc = snapshot.docs[0];
-          transaction.update(entryDoc.ref, {
-            assignedTo: username,
-            status: "inProgress",
-            claimedAt: new Date(),
-          });
-          transaction.set(
-            userRef,
-            { currentEntryId: entryDoc.id, history },
-            { merge: true }
-          );
-          const entryData = entryDoc.data();
-          return { id: entryDoc.id, imageName: entryData.imageName };
-        }
-
-        // 2) If no unclaimed, find inProgress assigned to this user
-        snapshot = await transaction.get(
-          entriesRef
+            .limit(1),
+          // 2) Fetch in-progress entries assigned to this user
+          db
+            .collection(projectName)
             .where("status", "==", "inProgress")
             .where("assignedTo", "==", username)
             .orderBy("createdAt", "asc")
-            .limit(10)
-        );
+            .limit(10),
+          // 3) Fetch in-progress entries not assigned to this user
+          db
+            .collection(projectName)
+            .where("status", "==", "inProgress")
+            .where("assignedTo", "!=", username)
+            .orderBy("createdAt", "asc")
+            .limit(10),
+        ];
 
-        // If no entries are returned from query, exit
-        if (snapshot.empty) {
-          transaction.set(userRef, { history }, { merge: true });
-          return null;
+        // Process queries sequentially to find the next entry
+        for (const query of queries) {
+          const snapshot = await transaction.get(query);
+
+          if (!snapshot.empty) {
+            const entryDoc = snapshot.docs[0];
+            const entryData = entryDoc.data();
+
+            // Update the entry to mark it as in-progress and assign it to the current user
+            transaction.update(entryDoc.ref, {
+              assignedTo: username,
+              status: "inProgress",
+              claimedAt: new Date(),
+            });
+            // Update the user's document with the new current entry and updated history
+            transaction.set(
+              userRef,
+              { currentEntryId: entryDoc.id, history },
+              { merge: true }
+            );
+
+            // Return the entry details to the caller
+            return { id: entryDoc.id, imageName: entryData.imageName };
+          }
         }
 
-        const candidateDoc = snapshot.docs[0];
-        if (!candidateDoc) {
-          transaction.set(userRef, { history }, { merge: true });
-          return null;
-        }
-
-        // Set the candidate entry to the user's profile, return from internal function
-        transaction.set(
-          userRef,
-          { currentEntryId: candidateDoc.id, history },
-          { merge: true }
-        );
-
-        const entryData = candidateDoc.data();
-        return { id: candidateDoc.id, imageName: entryData.imageName };
+        // No available entries, update user document and exit
+        transaction.set(userRef, { history }, { merge: true });
+        return null;
       }
     );
 
+    // Check if db result was successful
     if (!dbResult) {
       return res.status(404).send({ message: "No available entries" });
     }
 
-    // Get image from disk, return image to Client
+    // Retrieve the image file from disk
     const imageBlob = await Utils.getImageBlob(
       directoryPath,
       dbResult.imageName
     );
 
+    // Send the entry details and the image blob to the client
     res.send({ ...dbResult, imageBlob });
   })
 );
@@ -265,7 +264,7 @@ app.post(
     // Updates lastAccessedTime for user
     await Utils.updateUserTimestamp(username);
 
-    // Use a Firestore transaction to atomically query
+    // Get db result - use a Firestore transaction to atomically query
     const dbResult = await db.runTransaction<TransactionResult | null>(
       async (transaction: Transaction) => {
         // Get user that sent request
@@ -293,6 +292,29 @@ app.post(
         }
         const entryData = entryDoc.data();
 
+        // Helper function to format selection groups
+        const formatSelectionGroups = (groups: any) => {
+          const formattedGroups: Record<string, any> = {};
+          ["group0", "group1", "group2"].forEach((groupKey) => {
+            const group = groups[groupKey] || {};
+            formattedGroups[groupKey] = {
+              text: group.text || "",
+              type: group.type || "",
+              meshes: Object.values(group.meshes || {}).map((mesh: any) => ({
+                id: mesh.id || null,
+                position: mesh.position || {},
+                size: mesh.size || {},
+              })),
+            };
+          });
+          return formattedGroups;
+        };
+
+        // Format selection groups
+        const selectionGroups = formatSelectionGroups(
+          entryData?.selectionGroups || {}
+        );
+
         // Set the candidate entry to the user's profile, return from internal function
         transaction.update(entryRef, {
           assignedTo: username,
@@ -308,24 +330,25 @@ app.post(
         return {
           id: prevEntryId,
           imageName: entryData?.imageName,
-          groupText0: entryData?.groupText0 || "",
-          groupText1: entryData?.groupText1 || "",
-          groupText2: entryData?.groupText2 || "",
           imageType: entryData?.imageType || "mp", // Default to "mp" if not set
+          rotation: entryData?.rotation || 0,
+          selectionGroups,
         };
       }
     );
 
+    // Check if db result was successful
     if (!dbResult) {
       return res.status(404).send({ message: "No previous entry" });
     }
 
-    // Get image from disk, return image to Client
+    // Retrieve the image file from disk
     const imageBlob = await Utils.getImageBlob(
       directoryPath,
       dbResult.imageName
     );
 
+    // Send the entry details and the image blob to the client
     res.send({ ...dbResult, imageBlob });
   })
 );

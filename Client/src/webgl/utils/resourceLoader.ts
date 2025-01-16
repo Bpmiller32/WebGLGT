@@ -36,7 +36,8 @@ export default class ResourceLoader {
   public loadGtImageFromApi(
     imageUrl?: string,
     blob?: Blob,
-    resetGui: boolean = true
+    resetGui: boolean = true,
+    rotation?: number
   ) {
     // Store both URL and blob for later use in disposal and potential download in debug
     this.currentImageUrl = imageUrl;
@@ -45,7 +46,7 @@ export default class ResourceLoader {
     // Load the texture
     this.textureLoader?.load(imageUrl!, (image) => {
       this.items["apiImage"] = image;
-      Emitter.emit("loadedFromApi", resetGui);
+      Emitter.emit("loadedFromApi", { resetGui, rotation });
     });
   }
 

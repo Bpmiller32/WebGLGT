@@ -44,6 +44,10 @@ export default class SelectionGroupManager {
   private delimiterPadding!: number;
   private selectionGroupsColorMap!: { [key: number]: number };
 
+  public selectionGroup0MeshData: { id: string; position: { x: number; y: number; z: number }; size: { width: number; height: number } }[] = [];
+  public selectionGroup1MeshData: { id: string; position: { x: number; y: number; z: number }; size: { width: number; height: number } }[] = [];
+  public selectionGroup2MeshData: { id: string; position: { x: number; y: number; z: number }; size: { width: number; height: number } }[] = [];
+
   constructor() {
     // Init
     this.initializeFields();
@@ -379,6 +383,54 @@ export default class SelectionGroupManager {
     });
   }
 
+  public recreateMeshesFromData(groupIndex: number, meshData: { id: string; position: { x: number; y: number; z: number }; size: { width: number; height: number } }[]) {
+    // Get the target selection group array
+    let targetGroup: THREE.Mesh[];
+    switch (groupIndex) {
+      case 0:
+        targetGroup = this.selectionGroup0;
+        break;
+      case 1:
+        targetGroup = this.selectionGroup1;
+        break;
+      case 2:
+        targetGroup = this.selectionGroup2;
+        break;
+      default:
+        return;
+    }
+
+    // Create meshes from the data
+    meshData.forEach(data => {
+      // Create geometry with the saved size
+      const geometry = new THREE.BoxGeometry(data.size.width, data.size.height, 2);
+      
+      // Create material with the appropriate color for this group
+      const material = this.createSelectionBoxMaterial(this.getGroupBaseColor(groupIndex));
+      
+      // Create the mesh and set its position
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(data.position.x, data.position.y, data.position.z);
+      
+      // Add to scene and selection group
+      this.scene.add(mesh);
+      targetGroup.push(mesh);
+    });
+
+    // Store the mesh data
+    switch (groupIndex) {
+      case 0:
+        this.selectionGroup0MeshData = meshData;
+        break;
+      case 1:
+        this.selectionGroup1MeshData = meshData;
+        break;
+      case 2:
+        this.selectionGroup2MeshData = meshData;
+        break;
+    }
+  }
+
   private getRandomShadeFromBaseColor(baseColor: THREE.Color, variation = 0.1) {
     // Get the base green RGB values, clamp values within [0, 1]
     const red = THREE.MathUtils.clamp(
@@ -525,18 +577,49 @@ export default class SelectionGroupManager {
       ? 1
       : 2;
 
+    // Store mesh data before cleanup
+    const meshData = selectionMeshes.map((mesh, index) => {
+      const size = new THREE.Vector3();
+      const boundingBox = new THREE.Box3().setFromObject(mesh);
+      boundingBox.getSize(size);
+      
+      return {
+        id: `mesh${index}`,
+        position: {
+          x: Number(mesh.position.x.toFixed(4)),
+          y: Number(mesh.position.y.toFixed(4)),
+          z: Number(mesh.position.z.toFixed(4))
+        },
+        size: {
+          width: Number(size.x.toFixed(4)),
+          height: Number(size.y.toFixed(4))
+        }
+      };
+    });
+
+    // Store mesh data in the corresponding class property
+    switch (groupIndex) {
+      case 0:
+        this.selectionGroup0MeshData = meshData;
+        break;
+      case 1:
+        this.selectionGroup1MeshData = meshData;
+        break;
+      case 2:
+        this.selectionGroup2MeshData = meshData;
+        break;
+    }
+
     // Combine all selections into one mesh
     let combinedMesh = selectionMeshes[0];
     for (let i = 1; i < selectionMeshes.length; i++) {
       combinedMesh = CSG.union(combinedMesh, selectionMeshes[i]);
     }
 
-    // Clean up the original selection meshes, add the only existing clipBox in case of further clips
+    // Clean up the original selection meshes
     for (const selection of selectionMeshes) {
-      // GtUtils.disposeMeshHelper(selection);
       selection.visible = false;
     }
-    // selectionMeshes.length = 0;
 
     // Push the combinedMesh back to the same plane as the imageContainer mesh, update it's local position matrix for CSG
     combinedMesh.position.z = 0;
@@ -661,7 +744,7 @@ export default class SelectionGroupManager {
       }
     );
 
-    // Remove all coordinates
+    // Remove all coordinates and mesh data
     [
       this.selectionGroupPixelCoordinates0,
       this.selectionGroupPixelCoordinates1,
@@ -670,6 +753,11 @@ export default class SelectionGroupManager {
       // Clear the group
       selectionGroup.length = 0;
     });
+
+    // Clear mesh data
+    this.selectionGroup0MeshData = [];
+    this.selectionGroup1MeshData = [];
+    this.selectionGroup2MeshData = [];
 
     // Reset join state
     this.areSelectionGroupsJoined = false;
