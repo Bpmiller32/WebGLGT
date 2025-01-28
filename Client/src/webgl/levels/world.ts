@@ -61,22 +61,25 @@ export default class World {
       this.selectionGroupManager?.mouseUp(event);
     });
 
-    Emitter.on("loadedFromApi", (event: { resetGui: boolean; rotation?: number }) => {
-      this.imageContainer?.destroy();
-      this.imageContainer?.setNewImage(event.resetGui);
+    Emitter.on(
+      "loadedFromApi",
+      (event: { resetGui: boolean; rotation?: number }) => {
+        this.imageContainer?.destroy();
+        this.imageContainer?.setNewImage(event.resetGui);
 
-      this.selectionGroupManager?.destroy();
+        this.selectionGroupManager?.destroy();
 
-      this.visualCueManager?.destroy();
-      this.visualCueManager?.createVisualCueMesh();
+        this.visualCueManager?.destroy();
+        this.visualCueManager?.createVisualCueMesh();
 
-      this.camera.targetPostion.set(0, 0, 10);
-      this.camera.targetZoom = 1;
+        this.camera.targetPostion.set(0, 0, 10);
+        this.camera.targetZoom = 1;
 
-      this.delimiterImages.forEach((delimiterImage) => {
-        delimiterImage.resetPosition();
-      });
-    });
+        this.delimiterImages.forEach((delimiterImage) => {
+          delimiterImage.resetPosition();
+        });
+      }
+    );
 
     Emitter.on("changeSelectionGroup", (groupNumber) => {
       this.visualCueManager?.changeColor(groupNumber);
@@ -93,7 +96,6 @@ export default class World {
       this.imageContainer!.isRotationDisabled = false;
 
       this.selectionGroupManager?.destroy();
-      this.selectionGroupManager!.activeSelectionGroup = 0;
 
       this.visualCueManager?.changeColor(0);
 

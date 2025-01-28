@@ -1,7 +1,7 @@
 import { AdjustmentsHorizontalIcon, XMarkIcon } from "@heroicons/vue/16/solid";
 import { defineComponent, PropType, ref } from "vue";
 import ProjectSelect from "./subcomponents/ProjectSelect";
-import ApiHander from "../apiHandler";
+import ApiHandler from "../apiHandler";
 
 export default defineComponent({
   props: {
@@ -58,7 +58,7 @@ export default defineComponent({
           throw new Error("Project name is required.");
         }
 
-        const creationSuccess = await ApiHander.createImageDatabase(
+        const creationSuccess = await ApiHandler.createImageDatabase(
           apiUrl,
           projectName.value
         );
@@ -83,7 +83,7 @@ export default defineComponent({
           throw new Error("Project selection is required.");
         }
 
-        const exportSuccess = await ApiHander.exportToJson(
+        const exportSuccess = await ApiHandler.exportToJson(
           apiUrl,
           selectedProject.value
         );
@@ -106,7 +106,7 @@ export default defineComponent({
           throw new Error("Project selection is required.");
         }
 
-        const stats = await ApiHander.getProjectStats(
+        const stats = await ApiHandler.getProjectStats(
           apiUrl,
           selectedProject.value
         );

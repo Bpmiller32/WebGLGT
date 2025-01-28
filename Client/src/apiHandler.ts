@@ -176,17 +176,40 @@ export default class ApiHandler {
       // Retrieve the token from localStorage
       const token = this.getTokenOrThrow();
 
-      // Make a POST request to the protected endpoint
+      // Make a POST request to the protected endpoint with response type set to "blob" to expect a binary file (zip) in the response
       const response = await axios.post(
         `${apiUrl}/exportToJson`,
         { projectName },
-        { headers: this.getAuthHeaders(token) }
+        {
+          headers: this.getAuthHeaders(token),
+          responseType: "blob",
+        }
       );
 
-      // Check for success in response
-      if (response.status == 200) {
+      // Check if the response is successful
+      if (response.status === 200) {
+        // Create a blob from the response data
+        const blob = new Blob([response.data], { type: "application/zip" });
+
+        // Create a URL for the blob
+        const downloadUrl = URL.createObjectURL(blob);
+
+        // Create an anchor element and trigger a download
+        const a = document.createElement("a");
+        a.href = downloadUrl;
+        a.download = `${projectName}.zip`;
+        document.body.appendChild(a);
+        a.click();
+
+        // Clean up the URL and remove the anchor element
+        URL.revokeObjectURL(downloadUrl);
+        document.body.removeChild(a);
+
         return true;
       } else {
+        console.error(
+          "Failed to export project. Server returned non-200 status."
+        );
         return false;
       }
     } catch (error) {
@@ -371,6 +394,7 @@ export default class ApiHandler {
         "No more unclaimed, loaded previously unfinished image"
       );
     }
+
     webglExperience.input.previousDashboardImageName = image.imageName;
 
     // Note: Not revoking URL here since we may need it for downloading later

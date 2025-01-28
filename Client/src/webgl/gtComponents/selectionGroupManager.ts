@@ -34,6 +34,12 @@ export default class SelectionGroupManager {
 
   public combinedBoundingBox!: THREE.Box3;
   public areSelectionGroupsJoined!: boolean;
+  private preStitchState: {
+    camera: {
+      position: THREE.Vector3;
+      zoom: number;
+    };
+  } | null = null;
 
   public selectionGroupPixelCoordinates0!: THREE.Vector2[];
   public selectionGroupPixelCoordinates1!: THREE.Vector2[];
@@ -44,9 +50,21 @@ export default class SelectionGroupManager {
   private delimiterPadding!: number;
   private selectionGroupsColorMap!: { [key: number]: number };
 
-  public selectionGroup0MeshData: { id: string; position: { x: number; y: number; z: number }; size: { width: number; height: number } }[] = [];
-  public selectionGroup1MeshData: { id: string; position: { x: number; y: number; z: number }; size: { width: number; height: number } }[] = [];
-  public selectionGroup2MeshData: { id: string; position: { x: number; y: number; z: number }; size: { width: number; height: number } }[] = [];
+  public selectionGroup0MeshData: {
+    id: string;
+    position: { x: number; y: number; z: number };
+    size: { width: number; height: number };
+  }[] = [];
+  public selectionGroup1MeshData: {
+    id: string;
+    position: { x: number; y: number; z: number };
+    size: { width: number; height: number };
+  }[] = [];
+  public selectionGroup2MeshData: {
+    id: string;
+    position: { x: number; y: number; z: number };
+    size: { width: number; height: number };
+  }[] = [];
 
   constructor() {
     // Init
@@ -186,15 +204,28 @@ export default class SelectionGroupManager {
   }
 
   public stitchBoxes(): void {
-    // Do not continue if selectionGroups are already joined or are all empty
+    // If already joined, unstitchBoxes
+    if (this.areSelectionGroupsJoined && this.preStitchState) {
+      this.unstitchBoxes();
+      return;
+    }
+
+    // Do not continue if selectionGroups are all empty
     if (
-      this.areSelectionGroupsJoined ||
-      (this.selectionGroup0.length === 0 &&
-        this.selectionGroup1.length === 0 &&
-        this.selectionGroup2.length === 0)
+      this.selectionGroup0.length === 0 &&
+      this.selectionGroup1.length === 0 &&
+      this.selectionGroup2.length === 0
     ) {
       return;
     }
+
+    // Store the current state before stitching
+    this.preStitchState = {
+      camera: {
+        position: this.camera.instance.position.clone(),
+        zoom: this.camera.orthographicCamera.zoom,
+      },
+    };
 
     // Store the number of selectionGroupsUsed for delimiting to the right textArea
     [this.selectionGroup0, this.selectionGroup1, this.selectionGroup2].forEach(
@@ -383,7 +414,14 @@ export default class SelectionGroupManager {
     });
   }
 
-  public recreateMeshesFromData(groupIndex: number, meshData: { id: string; position: { x: number; y: number; z: number }; size: { width: number; height: number } }[]) {
+  public recreateMeshesFromData(
+    groupIndex: number,
+    meshData: {
+      id: string;
+      position: { x: number; y: number; z: number };
+      size: { width: number; height: number };
+    }[]
+  ) {
     // Get the target selection group array
     let targetGroup: THREE.Mesh[];
     switch (groupIndex) {
@@ -401,17 +439,23 @@ export default class SelectionGroupManager {
     }
 
     // Create meshes from the data
-    meshData.forEach(data => {
+    meshData.forEach((data) => {
       // Create geometry with the saved size
-      const geometry = new THREE.BoxGeometry(data.size.width, data.size.height, 2);
-      
+      const geometry = new THREE.BoxGeometry(
+        data.size.width,
+        data.size.height,
+        2
+      );
+
       // Create material with the appropriate color for this group
-      const material = this.createSelectionBoxMaterial(this.getGroupBaseColor(groupIndex));
-      
+      const material = this.createSelectionBoxMaterial(
+        this.getGroupBaseColor(groupIndex)
+      );
+
       // Create the mesh and set its position
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(data.position.x, data.position.y, data.position.z);
-      
+
       // Add to scene and selection group
       this.scene.add(mesh);
       targetGroup.push(mesh);
@@ -582,18 +626,18 @@ export default class SelectionGroupManager {
       const size = new THREE.Vector3();
       const boundingBox = new THREE.Box3().setFromObject(mesh);
       boundingBox.getSize(size);
-      
+
       return {
         id: `mesh${index}`,
         position: {
           x: Number(mesh.position.x.toFixed(4)),
           y: Number(mesh.position.y.toFixed(4)),
-          z: Number(mesh.position.z.toFixed(4))
+          z: Number(mesh.position.z.toFixed(4)),
         },
         size: {
           width: Number(size.x.toFixed(4)),
-          height: Number(size.y.toFixed(4))
-        }
+          height: Number(size.y.toFixed(4)),
+        },
       };
     });
 
@@ -610,16 +654,27 @@ export default class SelectionGroupManager {
         break;
     }
 
-    // Combine all selections into one mesh
-    let combinedMesh = selectionMeshes[0];
+    // Create a clone of the first mesh for CSG operations
+    let combinedMesh = selectionMeshes[0].clone();
+    combinedMesh.geometry = selectionMeshes[0].geometry.clone();
+    combinedMesh.material = selectionMeshes[0].material;
+
+    // Combine all selections into one mesh using the clones
     for (let i = 1; i < selectionMeshes.length; i++) {
-      combinedMesh = CSG.union(combinedMesh, selectionMeshes[i]);
+      const meshClone = selectionMeshes[i].clone();
+      meshClone.geometry = selectionMeshes[i].geometry.clone();
+      meshClone.material = selectionMeshes[i].material;
+      combinedMesh = CSG.union(combinedMesh, meshClone);
+      meshClone.geometry.dispose();
     }
 
-    // Clean up the original selection meshes
-    for (const selection of selectionMeshes) {
-      selection.visible = false;
-    }
+    // Hide but preserve the original selection meshes
+    selectionMeshes.forEach((mesh) => {
+      mesh.visible = false;
+      if (!this.scene.children.includes(mesh)) {
+        this.scene.add(mesh);
+      }
+    });
 
     // Push the combinedMesh back to the same plane as the imageContainer mesh, update it's local position matrix for CSG
     combinedMesh.position.z = 0;
@@ -725,12 +780,61 @@ export default class SelectionGroupManager {
     }
   }
 
+  private unstitchBoxes() {
+    if (!this.preStitchState) {
+      return;
+    }
+
+    // Reset the image container to its original state
+    GtUtils.disposeMeshHelper(this.world.imageContainer!.mesh!);
+    this.world.imageContainer!.mesh = new THREE.Mesh(
+      this.world.imageContainer!.geometry,
+      this.world.imageContainer!.materials
+    );
+    this.scene.add(this.world.imageContainer!.mesh);
+
+    // Restore camera position by setting targetPosition
+    this.camera.targetPostion.copy(this.preStitchState.camera.position);
+
+    // Temporarily reduce sensitivity for smoother transition
+    this.camera.setTemporarySensitivity(0.05);
+
+    // Reset sensitivity after a short delay
+    setTimeout(() => {
+      this.camera.restoreDefaultSensitivity();
+    }, 100);
+
+    // Restore zoom settings
+    this.camera.targetZoom = this.preStitchState.camera.zoom;
+    this.camera.orthographicCamera.zoom = this.preStitchState.camera.zoom;
+    this.camera.orthographicCamera.updateProjectionMatrix();
+
+    // Make selectionGroup meshes visible again and ensure they're in the scene
+    [this.selectionGroup0, this.selectionGroup1, this.selectionGroup2].forEach(
+      (group) => {
+        group.forEach((selection) => {
+          selection.visible = true;
+          if (!this.scene.children.includes(selection)) {
+            this.scene.add(selection);
+          }
+        });
+      }
+    );
+
+    // Reset state
+    this.areSelectionGroupsJoined = false;
+    this.preStitchState = null;
+  }
+
   /* ------------------------------ Tick methods ------------------------------ */
   public destroy() {
     // Remove activeMesh
     if (this.activeMesh) {
       GtUtils.disposeMeshHelper(this.activeMesh);
     }
+
+    // Reset preStitchState and activeSelectionGroup
+    this.preStitchState = null;
 
     // Remove all clipBoxes
     [this.selectionGroup0, this.selectionGroup1, this.selectionGroup2].forEach(

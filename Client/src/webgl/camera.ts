@@ -45,6 +45,7 @@ export default class Camera {
   public targetPostion: THREE.Vector3;
   public targetZoom: number;
   private sensitivityMovement: number;
+  private defaultSensitivityMovement: number;
   private sensitivityZoom: number;
   private maximumZoomLevel: number;
 
@@ -60,6 +61,7 @@ export default class Camera {
     this.targetPostion = new THREE.Vector3(0, 0, CAMERA_DEFAULTS.POSITION.Z);
     this.targetZoom = CAMERA_DEFAULTS.ZOOM.DEFAULT;
     this.sensitivityMovement = CAMERA_DEFAULTS.SENSITIVITY.MOVEMENT;
+    this.defaultSensitivityMovement = CAMERA_DEFAULTS.SENSITIVITY.MOVEMENT;
     this.sensitivityZoom = CAMERA_DEFAULTS.SENSITIVITY.ZOOM;
     this.maximumZoomLevel = CAMERA_DEFAULTS.ZOOM.MAX;
     this.cameraType = "orthographic";
@@ -198,6 +200,16 @@ export default class Camera {
   }
 
   /* ------------------------------ Tick methods ------------------------------ */
+  // Methods to temporarily adjust movement sensitivity
+  public setTemporarySensitivity(sensitivity: number) {
+    this.defaultSensitivityMovement = this.sensitivityMovement;
+    this.sensitivityMovement = sensitivity;
+  }
+
+  public restoreDefaultSensitivity() {
+    this.sensitivityMovement = this.defaultSensitivityMovement;
+  }
+
   public resize() {
     // Needed for both cameras
     const aspectRatio = this.sizes.width / this.sizes.height;

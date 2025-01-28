@@ -11,6 +11,7 @@ import { ImageDocument } from "./types/imageDocument";
 import Utils from "./utils";
 import { TransactionResult } from "./types/transactionResult";
 import { Parser } from "json2csv";
+import archiver from "archiver";
 
 /* -------------------------------------------------------------------------- */
 /*                                    Setup                                   */
@@ -519,19 +520,75 @@ app.post(
     snapshot.docs.forEach((doc) => {
       const docData = {
         id: doc.id,
-        ...doc.data(),
+        ...(doc.data() as any),
       };
 
+      // Use `imageName` as the filename if it exists, otherwise fallback to the document ID
+      const imageName =
+        docData.imageName && typeof docData.imageName === "string"
+          ? docData.imageName
+          : doc.id;
+
+      // Remove any file extension from `imageName` (e.g., .png, .jpg)
+      const nameWithoutExtension = imageName.replace(/\.[^/.]+$/, ""); // Removes the last period and extension, if present
+
+      // Sanitize the filename to prevent issues
+      const sanitizedFileName = nameWithoutExtension.replace(
+        /[^a-z0-9-_]/gi,
+        "_"
+      );
+
       // Define file path for each document
-      const filePath = path.join(outputDir, `${doc.id}.json`);
+      const filePath = path.join(outputDir, `${sanitizedFileName}.json`);
 
       // Write document data to JSON file
       fs.writeFileSync(filePath, JSON.stringify(docData, null, 2));
     });
 
-    res.status(200).json({
-      message: "JSON files created successfully",
-      outputDir,
+    // Set the response headers to direct streaming of the zip file
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${projectName}.zip"`
+    );
+
+    const archive = archiver("zip", { zlib: { level: 9 } });
+
+    // Event handler for error handling
+    archive.on("error", (err: any) => {
+      console.error("Error creating zip archive:", err);
+      return res.status(500).json({ error: "Failed to create zip archive" });
+    });
+
+    archive.pipe(res);
+
+    // Create a zip file of the json files in the output directory
+    const zipFilePath = path.join(outputDir, `${projectName}.zip`);
+    const output = fs.createWriteStream(zipFilePath);
+
+    // Read all files in the `outputDir` directory
+    const files = fs
+      .readdirSync(outputDir)
+      .filter((file) => file.endsWith(".json"));
+
+    // Loop through each JSON file in the directory
+    for (const file of files) {
+      const filePath = path.join(outputDir, file);
+      archive.file(filePath, { name: file });
+    }
+
+    // Ensure archive is fully finalized before closing the response
+    await archive.finalize();
+
+    // Delete the zip file after sending the response
+    res.on("finish", () => {
+      fs.unlink(zipFilePath, (err) => {
+        if (err) {
+          console.error(`Failed to delete zip file: ${zipFilePath}`, err);
+        } else {
+          console.log(`Successfully deleted zip file: ${zipFilePath}`);
+        }
+      });
     });
   })
 );

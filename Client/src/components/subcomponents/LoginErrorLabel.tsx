@@ -31,7 +31,7 @@ export default defineComponent({
         <div class="flex items-center justify-self-end">
           <label
             class={[
-              "text-sm text-red-500",
+              "text-xs text-red-500",
               toggleAnimation.value && "animate-shake",
             ]}
           >
