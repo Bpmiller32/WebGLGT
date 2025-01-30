@@ -78,34 +78,44 @@ export default defineComponent({
     });
 
     /* ---------------------------- Helper Methods ---------------------------- */
+    const dismiss = () => {
+      isVisible.value = false;
+      if (dismissTimer) {
+        clearTimeout(dismissTimer);
+        dismissTimer = null;
+      }
+    };
+
     const showNotification = (
       newMessage: string,
       newType: "success" | "loading" | "warning" | "error",
       duration: number = 3000,
       manualDismissAllowed = false
     ) => {
-      // Dismiss any currently active notification first
+      // Always clear any existing notification and its timeout
       dismiss();
 
-      // Update reactive state for the new notification
+      // Handle error notifications differently
+      if (newType === "error") {
+        // Set a small delay to ensure clean transition
+        setTimeout(() => {
+          message.value = newMessage;
+          alertType.value = newType;
+          isVisible.value = true;
+        }, 100);
+        return;
+      }
+
+      // For non-error notifications
       message.value = newMessage;
       alertType.value = newType;
       isVisible.value = true;
 
-      // If not manually dismissable, auto-dismiss after 'duration'
+      // Set auto-dismiss timer if needed
       if (!manualDismissAllowed && duration > 0) {
         dismissTimer = window.setTimeout(() => {
           dismiss();
         }, duration);
-      }
-    };
-
-    const dismiss = () => {
-      isVisible.value = false;
-
-      if (dismissTimer) {
-        clearTimeout(dismissTimer);
-        dismissTimer = null;
       }
     };
 

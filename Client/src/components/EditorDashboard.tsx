@@ -10,6 +10,7 @@ import {
   ArrowDownOnSquareStackIcon,
   ArrowLeftEndOnRectangleIcon,
   FolderOpenIcon,
+  HashtagIcon,
   QuestionMarkCircleIcon,
 } from "@heroicons/vue/16/solid";
 import * as THREE from "three";
@@ -65,11 +66,14 @@ export default defineComponent({
     const isCutToggled = ref(false);
 
     // Watch for loading state changes to reset toggle
-    watch(() => isLoading.value, (newValue) => {
-      if (newValue) {
-        isCutToggled.value = false;
+    watch(
+      () => isLoading.value,
+      (newValue) => {
+        if (newValue) {
+          isCutToggled.value = false;
+        }
       }
-    });
+    );
 
     // Computed property to check if save should be enabled
     const canSave = () => {
@@ -97,6 +101,7 @@ export default defineComponent({
       help: <QuestionMarkCircleIcon class="h-5 w-5" />,
       downloadJson: <ArrowDownOnSquareStackIcon class="h-5 w-5" />,
       gotoFile: <FolderOpenIcon class="h-5 w-5" />,
+      grid: <HashtagIcon class="h-5 w-5" />,
     };
 
     /* ---------------------------- Lifecycle Events ---------------------------- */
@@ -111,7 +116,9 @@ export default defineComponent({
     // Listen for changes in stitched state
     Emitter.on("stitchBoxes", () => {
       if (props.webglExperience.world?.selectionGroupManager) {
-        const isStitched = props.webglExperience.world.selectionGroupManager.areSelectionGroupsJoined;
+        const isStitched =
+          props.webglExperience.world.selectionGroupManager
+            .areSelectionGroupsJoined;
         // Only update if unstitching or if not already toggled
         if (!isStitched || !isCutToggled.value) {
           isCutToggled.value = isStitched;
@@ -286,13 +293,13 @@ export default defineComponent({
                 <div class="p-6">
                   <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                      Enter filename
+                      Enter image filename
                     </label>
                     <input
                       type="text"
                       class="w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300"
                       v-model={filename.value}
-                      placeholder="filename.json"
+                      placeholder="filename.tif"
                     />
                   </div>
                   <div class="flex justify-end gap-3">
@@ -306,13 +313,31 @@ export default defineComponent({
                       Cancel
                     </button>
                     <button
-                      onClick={() => {
-                        if (filename.value.trim()) {
-                          // TODO: Handle file loading here
-                          console.log("Load file:", filename.value);
-                        }
+                      onClick={async () => {
+                        const trimmedFilename = filename.value.trim();
+                        // Always close modal first
                         showFileModal.value = false;
                         filename.value = "";
+
+                        if (trimmedFilename) {
+                          try {
+                            isLoading.value = true;
+                            Emitter.emit("appLoading", "Loading image...");
+                            await ApiHandler.handleImageByName(
+                              apiUrl,
+                              props.webglExperience,
+                              trimmedFilename
+                            );
+                            activateGroup(0);
+                            resetCutButtonToggle();
+                          } catch {
+                            Emitter.emit(
+                              "appError",
+                              "Could not load image. Please check the image name and try again."
+                            );
+                            isLoading.value = false;
+                          }
+                        }
                       }}
                       class="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
                     >
@@ -413,7 +438,7 @@ export default defineComponent({
 
           {/* Mail type, Image Action buttons */}
           <section class="flex justify-between items-center">
-            <div class="flex gap-2">
+            <div class="flex gap-1">
               <UserButton
                 icon={userButtonConfig.gotoFile}
                 handleClick={() => {
@@ -428,6 +453,10 @@ export default defineComponent({
                     await ApiHandler.exportToJson(apiUrl, projectName);
                   }
                 }}
+              />
+              <UserButton
+                icon={userButtonConfig.grid}
+                handleClick={async () => {}}
               />
             </div>
             <div class="flex">

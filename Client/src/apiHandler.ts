@@ -289,6 +289,65 @@ export default class ApiHandler {
     }
   }
 
+  // Requests the server for a specific image by name
+  public static async getImageByName(
+    apiUrl: string,
+    projectName: string,
+    directoryPath: string,
+    imageName: string
+  ) {
+    try {
+      // Retrieve the token from localStorage
+      const token = this.getTokenOrThrow();
+
+      // Make a POST request to the protected endpoint
+      const response = await axios.post(
+        `${apiUrl}/getByName`,
+        { projectName, directoryPath, imageName },
+        { headers: this.getAuthHeaders(token) }
+      );
+
+      // Extract the response data, imageBlob is Base64 string since the content type on the response was json
+      const { imageBlob, selectionGroups, rotation } = response.data;
+      if (!imageBlob) {
+        throw new Error("No valid imageBlob in response");
+      }
+
+      const { blob, blobUrl } = this.decodeBase64Image(imageBlob);
+
+      return {
+        imageName: imageName,
+        imageBlob: blobUrl,
+        blob: blob,
+        selectionGroups: {
+          group0: {
+            coordinates: [],
+            boxes: selectionGroups.group0.boxes || [],
+            text: selectionGroups.group0.text || "",
+            type: selectionGroups.group0.type || "",
+          },
+          group1: {
+            coordinates: [],
+            boxes: selectionGroups.group1.boxes || [],
+            text: selectionGroups.group1.text || "",
+            type: selectionGroups.group1.type || "",
+          },
+          group2: {
+            coordinates: [],
+            boxes: selectionGroups.group2.boxes || [],
+            text: selectionGroups.group2.text || "",
+            type: selectionGroups.group2.type || "",
+          },
+        },
+        rotation: rotation || 0,
+      };
+    } catch (error) {
+      console.error("Could not retrieve the specified image: ", error);
+      Emitter.emit("appError", "Error getting image by name");
+      return null;
+    }
+  }
+
   // Requests the server for the "previous" image in the user's history.
   public static async prev(
     apiUrl: string,
@@ -393,6 +452,49 @@ export default class ApiHandler {
   }
 
   // Handler for retrieving and loading the previous image in WebGL experience.
+  // Handler for retrieving and loading a specific image by name in WebGL experience
+  public static async handleImageByName(
+    apiUrl: string,
+    webglExperience: Experience,
+    imageName: string
+  ) {
+    // Retrieve projectName and directoryPath from localStorage
+    const { projectName, directoryPath } = this.getProjectInfoOrThrow();
+
+    // Pull image from project db by name
+    const image = await ApiHandler.getImageByName(
+      apiUrl,
+      projectName,
+      directoryPath,
+      imageName
+    );
+    if (!image) {
+      Emitter.emit("appError", "Could not find image with the specified name");
+      return;
+    }
+
+    // Set up event listener for image load completion
+    const handleImageLoaded = this.setupImageLoadedHandler(
+      image,
+      webglExperience
+    );
+    Emitter.on("loadedFromApi", handleImageLoaded);
+
+    // Load the image into the WebGL scene
+    webglExperience.resources.loadGtImageFromApi(
+      image.imageBlob,
+      image.blob,
+      false,
+      image.rotation
+    );
+
+    // Update the UI with the db info
+    this.updateDashboard(image.imageName, image.selectionGroups);
+
+    // Step 7: Check for duplicate image load
+    this.checkForDuplicateImage(image.imageName, webglExperience);
+  }
+
   public static async handlePrevImage(
     apiUrl: string,
     webglExperience: Experience

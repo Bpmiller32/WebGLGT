@@ -354,6 +354,99 @@ app.post(
   })
 );
 
+/* ---------------------------- Get image by name ---------------------------- */
+app.post(
+  `${reverseProxySubdomain}/getByName`,
+  requireAuth,
+  Utils.asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    // Verify there is a valid user
+    const username = req.user?.username;
+    if (!username) {
+      return res.status(401).send("User not authenticated");
+    }
+
+    // Grab project/db name, path to images, and imageName from request
+    const { projectName, directoryPath, imageName } = req.body;
+    if (!projectName || typeof projectName !== "string") {
+      return res.status(400).json({ error: "Invalid or missing projectName" });
+    }
+    if (!directoryPath || typeof directoryPath !== "string") {
+      return res
+        .status(400)
+        .json({ error: "Invalid or missing directoryPath" });
+    }
+    if (!imageName || typeof imageName !== "string") {
+      return res.status(400).json({ error: "Invalid or missing imageName" });
+    }
+
+    // Updates lastAccessedTime for user
+    await Utils.updateUserTimestamp(username);
+
+    // Query Firestore for the document with matching imageName
+    const snapshot = await db
+      .collection(projectName)
+      .where("imageName", "==", imageName)
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return res.status(404).send({ message: "Image not found" });
+    }
+
+    const entryDoc = snapshot.docs[0];
+    const entryData = entryDoc.data();
+
+    // Helper function to format selection groups (same as in prev endpoint)
+    const formatSelectionGroups = (groups: any) => {
+      const formattedGroups: Record<string, any> = {};
+      ["group0", "group1", "group2"].forEach((groupKey) => {
+        const group = groups[groupKey] || {};
+        formattedGroups[groupKey] = {
+          text: group.text || "",
+          type: group.type || "",
+          boxes: Object.values(group.boxes || {}).map((mesh: any) => ({
+            id: mesh.id || null,
+            position: mesh.position || {},
+            size: mesh.size || {},
+          })),
+        };
+      });
+      return formattedGroups;
+    };
+
+    // Format selection groups
+    const selectionGroups = formatSelectionGroups(
+      entryData?.selectionGroups || {}
+    );
+
+    // Update the document to mark it as in-progress and assign it to the current user
+    await entryDoc.ref.update({
+      assignedTo: username,
+      status: "inProgress",
+      claimedAt: new Date(),
+    });
+
+    // Update user's current entry
+    await db
+      .collection("users")
+      .doc(username)
+      .set({ currentEntryId: entryDoc.id }, { merge: true });
+
+    // Retrieve the image file from disk
+    const imageBlob = await Utils.getImageBlob(directoryPath, imageName);
+
+    // Send the entry details and the image blob to the client
+    res.send({
+      id: entryDoc.id,
+      imageName: entryData.imageName,
+      imageType: entryData.imageType || "mp", // Default to "mp" if not set
+      rotation: entryData.rotation || 0,
+      selectionGroups,
+      imageBlob,
+    });
+  })
+);
+
 /* --------------------------- Update image data ---------------------------- */
 app.post(
   `${reverseProxySubdomain}/update`,
