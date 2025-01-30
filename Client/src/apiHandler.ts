@@ -2,19 +2,6 @@ import Emitter from "./webgl/utils/eventEmitter";
 import Experience from "./webgl/experience";
 import axios from "axios";
 
-interface MeshData {
-  id: string;
-  position: {
-    x: number;
-    y: number;
-    z: number;
-  };
-  size: {
-    width: number;
-    height: number;
-  };
-}
-
 export default class ApiHandler {
   // Pings the Server
   public static async pingServer(apiUrl: string) {
@@ -331,28 +318,27 @@ export default class ApiHandler {
         imageName: imageName,
         imageBlob: blobUrl,
         blob: blob,
-        selectionGroups: selectionGroups || {
+        selectionGroups: {
           group0: {
             coordinates: [],
-            meshes: {},
+            boxes: selectionGroups.group0.boxes || [],
             text: selectionGroups.group0.text || "",
             type: selectionGroups.group0.type || "",
           },
           group1: {
             coordinates: [],
-            meshes: {},
+            boxes: selectionGroups.group1.boxes || [],
             text: selectionGroups.group1.text || "",
             type: selectionGroups.group1.type || "",
           },
-
           group2: {
             coordinates: [],
-            meshes: {},
+            boxes: selectionGroups.group2.boxes || [],
             text: selectionGroups.group2.text || "",
             type: selectionGroups.group2.type || "",
           },
         },
-        rotation: rotation || 0, // Default to 0 if not provided
+        rotation: rotation || 0,
       };
     } catch (error) {
       console.error(
@@ -595,11 +581,10 @@ export default class ApiHandler {
     selectionGroups: any
   ) {
     ["group0", "group1", "group2"].forEach((groupKey, index) => {
-      const meshes = Object.values(
-        selectionGroups[groupKey]?.meshes || {}
-      ) as MeshData[];
-      if (meshes.length > 0) {
-        selectionManager.recreateMeshesFromData(index, meshes);
+      const boxes = selectionGroups[groupKey]?.boxes || [];
+
+      if (boxes.length > 0) {
+        selectionManager.recreateMeshesFromData(index, boxes);
       }
     });
   }

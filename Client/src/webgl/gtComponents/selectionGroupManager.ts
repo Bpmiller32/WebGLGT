@@ -34,7 +34,7 @@ export default class SelectionGroupManager {
 
   public combinedBoundingBox!: THREE.Box3;
   public areSelectionGroupsJoined!: boolean;
-  private preStitchState: {
+  public preStitchState: {
     camera: {
       position: THREE.Vector3;
       zoom: number;
@@ -821,7 +821,7 @@ export default class SelectionGroupManager {
       }
     );
 
-    // Reset state
+    // Reset state and disable rotation
     this.areSelectionGroupsJoined = false;
     this.preStitchState = null;
   }

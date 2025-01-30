@@ -301,7 +301,7 @@ app.post(
             formattedGroups[groupKey] = {
               text: group.text || "",
               type: group.type || "",
-              meshes: Object.values(group.meshes || {}).map((mesh: any) => ({
+              boxes: Object.values(group.boxes || {}).map((mesh: any) => ({
                 id: mesh.id || null,
                 position: mesh.position || {},
                 size: mesh.size || {},
@@ -516,21 +516,31 @@ app.post(
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // Export each document as a separate JSON file
-    snapshot.docs.forEach((doc) => {
-      const docData = {
+    // Filter out documents where `assignedTo` is null or empty
+    const validDocs = snapshot.docs
+      .map((doc) => ({
         id: doc.id,
         ...(doc.data() as any),
-      };
+      }))
+      .filter(
+        (docData) => docData.assignedTo && docData.assignedTo.trim() !== ""
+      );
 
+    // If no valid documents remain, return an error response
+    if (validDocs.length === 0) {
+      return res.status(404).json({ error: "No valid documents to export" });
+    }
+
+    // Export each valid document as a separate JSON file
+    validDocs.forEach((docData) => {
       // Use `imageName` as the filename if it exists, otherwise fallback to the document ID
       const imageName =
         docData.imageName && typeof docData.imageName === "string"
           ? docData.imageName
-          : doc.id;
+          : docData.id;
 
-      // Remove any file extension from `imageName` (e.g., .png, .jpg)
-      const nameWithoutExtension = imageName.replace(/\.[^/.]+$/, ""); // Removes the last period and extension, if present
+      // Remove any file extension from `imageName`
+      const nameWithoutExtension = imageName.replace(/\.[^/.]+$/, ""); // Removes file extension
 
       // Sanitize the filename to prevent issues
       const sanitizedFileName = nameWithoutExtension.replace(

@@ -88,7 +88,17 @@ export default class World {
 
     Emitter.on("stitchBoxes", () => {
       this.selectionGroupManager?.stitchBoxes();
-      this.imageContainer!.isRotationDisabled = true;
+
+      // TODO: messy, probably should go somewhere else
+      if (
+        this.selectionGroupManager!.areSelectionGroupsJoined &&
+        this.selectionGroupManager!.preStitchState
+      ) {
+        this.imageContainer!.isRotationDisabled = true;
+        return;
+      }
+
+      this.imageContainer!.isRotationDisabled = false;
     });
 
     Emitter.on("resetImage", () => {
