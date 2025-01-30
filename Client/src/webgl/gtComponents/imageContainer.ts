@@ -198,17 +198,17 @@ export default class ImageContainer {
     GtUtils.disposeMeshHelper(this.mesh!);
     this.mesh = new THREE.Mesh(this.geometry, this.materials);
 
-    // Reset position and rotation before adding back to scene
-    this.mesh.rotation.z = 0;
-    this.targetRotation.x = 0;
-    this.targetRotation.y = 0;
+    // // Reset position and rotation before adding back to scene
+    // this.mesh.rotation.z = 0;
+    // this.targetRotation.x = 0;
+    // this.targetRotation.y = 0;
     this.scene.add(this.mesh);
 
-    // Reset the camera
-    this.camera.orthographicCamera.position.set(0, 0, 10);
-    this.camera.targetPostion.set(0, 0, 10);
-    this.camera.orthographicCamera.zoom = 1;
-    this.camera.targetZoom = 1;
+    // // Reset the camera
+    // this.camera.orthographicCamera.position.set(0, 0, 10);
+    // this.camera.targetPostion.set(0, 0, 10);
+    // this.camera.orthographicCamera.zoom = 1;
+    // this.camera.targetZoom = 1;
 
     // Reset the textAreas in the GUI
     this.input.dashboardTextarea0!.value = "";

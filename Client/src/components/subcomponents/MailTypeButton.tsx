@@ -10,11 +10,11 @@ export default defineComponent({
       type: [Boolean, null] as PropType<true | false | null>,
       required: true,
     },
-    roundLeftCorner: {
+    roundTopCorners: {
       type: Boolean as PropType<boolean>,
       required: true,
     },
-    roundRightCorner: {
+    roundBottomCorners: {
       type: Boolean as PropType<boolean>,
       required: true,
     },
@@ -28,10 +28,10 @@ export default defineComponent({
       <button
         onClick={() => props.handleClick(props.buttonType)}
         class={{
-          "flex items-center py-2 px-3 gap-2 border border-white/50 group hover:border-indigo-600 duration-300":
+          "flex items-center py-2 px-3 gap-2 w-full border border-white/50 group hover:border-indigo-600 duration-300":
             true,
-          "rounded-l-xl": props.roundLeftCorner,
-          "rounded-r-xl": props.roundRightCorner,
+          "rounded-t-xl": props.roundTopCorners,
+          "rounded-b-xl": props.roundBottomCorners,
         }}
       >
         <div

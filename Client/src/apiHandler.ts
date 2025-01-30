@@ -320,16 +320,7 @@ export default class ApiHandler {
       );
 
       // Extract the response data, imageBlob is Base64 string since the content type on the response was json
-      const {
-        imageName,
-        imageBlob,
-        groupText0,
-        groupText1,
-        groupText2,
-        imageType,
-        selectionGroups,
-        rotation,
-      } = response.data;
+      const { imageName, imageBlob, selectionGroups, rotation } = response.data;
       if (!imageBlob) {
         throw new Error("No valid imageBlob in response");
       }
@@ -340,16 +331,26 @@ export default class ApiHandler {
         imageName: imageName,
         imageBlob: blobUrl,
         blob: blob,
-        groupTexts: {
-          groupText0: groupText0 || "",
-          groupText1: groupText1 || "",
-          groupText2: groupText2 || "",
-        },
-        imageType: imageType || "mp",
         selectionGroups: selectionGroups || {
-          group0: { meshes: {} },
-          group1: { meshes: {} },
-          group2: { meshes: {} },
+          group0: {
+            coordinates: [],
+            meshes: {},
+            text: selectionGroups.group0.text || "",
+            type: selectionGroups.group0.type || "",
+          },
+          group1: {
+            coordinates: [],
+            meshes: {},
+            text: selectionGroups.group1.text || "",
+            type: selectionGroups.group1.type || "",
+          },
+
+          group2: {
+            coordinates: [],
+            meshes: {},
+            text: selectionGroups.group2.text || "",
+            type: selectionGroups.group2.type || "",
+          },
         },
         rotation: rotation || 0, // Default to 0 if not provided
       };
@@ -397,6 +398,11 @@ export default class ApiHandler {
 
     webglExperience.input.previousDashboardImageName = image.imageName;
 
+    // Iterate through the selection groups and reset classification tags
+    [0, 1, 2].forEach((groupId) => {
+      Emitter.emit("setGroupType", { groupId, type: "" });
+    });
+
     // Note: Not revoking URL here since we may need it for downloading later
   }
 
@@ -434,11 +440,7 @@ export default class ApiHandler {
     );
 
     // Update the UI with the db info
-    this.updateDashboard(
-      image.imageName,
-      image.selectionGroups,
-      image.imageType
-    );
+    this.updateDashboard(image.imageName, image.selectionGroups);
 
     // Step 7: Check for duplicate image load
     this.checkForDuplicateImage(image.imageName, webglExperience);
@@ -603,11 +605,7 @@ export default class ApiHandler {
   }
 
   // Updates the image name in the UI.
-  private static updateDashboard(
-    imageName: string,
-    selectionGroups: any,
-    imageType: string
-  ) {
+  private static updateDashboard(imageName: string, selectionGroups: any) {
     // Update UI with image name
     const imageNameLabel = document.getElementById("gtImageName");
     if (imageNameLabel) {
@@ -635,8 +633,23 @@ export default class ApiHandler {
       }
     });
 
-    // Set classification tags
-    Emitter.emit("setClassificationTags", imageType);
+    // Helper function to determine the correct group type
+    const getGroupType = (type: string | undefined) => {
+      const normalizedType = type?.toLowerCase();
+      const typeMap = {
+        mp: "MP",
+        hw: "HW",
+        bad: "Bad",
+      } as const; // Ensures the values remain strictly typed
+
+      return typeMap[normalizedType as keyof typeof typeMap] || "";
+    };
+
+    // Iterate through the selection groups and set classification tags
+    [0, 1, 2].forEach((groupId) => {
+      const type = selectionGroups[`group${groupId}`]?.type as string;
+      Emitter.emit("setGroupType", { groupId, type: getGroupType(type) });
+    });
   }
 
   // Checks if the loaded image is the same as the current image.

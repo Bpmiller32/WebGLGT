@@ -585,8 +585,6 @@ app.post(
       fs.unlink(zipFilePath, (err) => {
         if (err) {
           console.error(`Failed to delete zip file: ${zipFilePath}`, err);
-        } else {
-          console.log(`Successfully deleted zip file: ${zipFilePath}`);
         }
       });
     });

@@ -34,9 +34,9 @@ type EventMap = {
   loadedFromFile: void;
   fillInForm: void;
   setEditorDashboard: { numberOfSelectionGroups: number; tags: string[] };
-  setClassificationTags: string;
   gotoNextImage: void;
   gotoPrevImage: void;
+  setGroupType: { groupId: number; type: "MP" | "HW" | "Bad" | "" };
 };
 
 // Create an emitter instance

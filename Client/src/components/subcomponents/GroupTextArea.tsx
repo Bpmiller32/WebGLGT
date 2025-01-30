@@ -1,5 +1,6 @@
 import { defineComponent, ref, PropType, onMounted, onUnmounted } from "vue";
 import Emitter from "../../webgl/utils/eventEmitter";
+import MailTypeButton from "./MailTypeButton";
 
 export default defineComponent({
   props: {
@@ -22,6 +23,16 @@ export default defineComponent({
     },
   },
   setup(props) {
+    // Track the current type for this group
+    const currentType = ref<string>("");
+
+    // Listen for setGroupType events for this group
+    Emitter.on("setGroupType", ({ groupId, type }) => {
+      if (groupId === props.id) {
+        currentType.value = type;
+      }
+    });
+
     // Ugly method to intercept programmatic changes to textArea. Only way I could consistantly get it working since textArea.value.value is changed outside of Vue reactivity system
     const value = ref<string>("");
     let isUpdating = false;
@@ -103,8 +114,10 @@ export default defineComponent({
       resizeObserver = null;
     });
 
+    /* ----------------------------- Render function ---------------------------- */
     return () => (
       <div class="flex pb-2">
+        {/* Textarea */}
         <textarea
           rows="3"
           id={`dashboardTextarea${props.id}`}
@@ -121,11 +134,53 @@ export default defineComponent({
             Emitter.emit("changeSelectionGroup", props.id);
           }}
           class={[
-            "min-w-96 max-w-96 min-h-10 resize bg-transparent text-gray-100 text-sm leading-6 rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400",
+            "min-w-[18.5rem] max-w-[18.5rem] min-h-[7.125rem] resize bg-transparent text-gray-100 text-sm leading-6 rounded-md border-0 py-1.5 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400",
             props.isActive &&
               "ring-2 ring-inset ring-indigo-600 focus:ring-[2.3px] focus:ring-indigo-600 focus:ring-inset",
           ]}
         />
+
+        {/* Mailtype buttons */}
+        <div class="ml-2 flex flex-col justify-center">
+          <MailTypeButton
+            buttonType={"MP"}
+            buttonVariable={currentType.value === "MP" ? true : null}
+            roundTopCorners={true}
+            roundBottomCorners={false}
+            handleClick={() => {
+              Emitter.emit("setGroupType", {
+                groupId: props.id,
+                type: currentType.value === "MP" ? "" : "MP",
+              });
+            }}
+          />
+          <MailTypeButton
+            buttonType={"HW"}
+            buttonVariable={currentType.value === "HW" ? true : null}
+            roundTopCorners={false}
+            roundBottomCorners={false}
+            handleClick={() => {
+              Emitter.emit("setGroupType", {
+                groupId: props.id,
+                type: currentType.value === "HW" ? "" : "HW",
+              });
+            }}
+          />
+          <MailTypeButton
+            buttonType={"Bad"}
+            buttonVariable={currentType.value === "Bad" ? true : null}
+            roundTopCorners={false}
+            roundBottomCorners={true}
+            handleClick={() => {
+              Emitter.emit("setGroupType", {
+                groupId: props.id,
+                type: currentType.value === "Bad" ? "" : "Bad",
+              });
+            }}
+          />
+        </div>
+
+        {/* Color indicator bar */}
         <div
           class={`w-2 min-h-full rounded-sm ml-2 bg-${props.color}-500`}
           aria-hidden="true"

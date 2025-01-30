@@ -8,17 +8,20 @@
     "group0": {
       "text": "",
       "coordinates": "",
-      "meshes": {}
+      "meshes": {},
+      "type": ""
     },
     "group1": {
       "text": "",
       "coordinates": "",
-      "meshes": {}
+      "meshes": {},
+      "type": ""
     },
     "group2": {
       "text": "",
       "coordinates": "",
-      "meshes": {}
+      "meshes": {},
+      "type": ""
     }
   },
   "assignedTo": null,
