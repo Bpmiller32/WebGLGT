@@ -28,6 +28,7 @@ type EventMap = {
   stitchBoxes: void;
   screenshotImage: void;
   resetImage: void;
+  toggleGrid: void;
   fastImageClassify: "mp" | "hw" | "bad";
   // api events/template events
   loadedFromApi: { resetGui: boolean; rotation?: number };

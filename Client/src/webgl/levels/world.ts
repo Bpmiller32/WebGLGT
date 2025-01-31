@@ -12,6 +12,7 @@ import ImageContainer from "../gtComponents/imageContainer.ts";
 import { debugWorld, debugWorldUpdate } from "../utils/debug/debugWorld.ts";
 import DelimiterImage from "../gtComponents/delimiterImage.ts";
 import VisualCueManager from "../gtComponents/visualCueManager.ts";
+import GridImage from "../gtComponents/gridImage.ts";
 
 export default class World {
   public experience: Experience;
@@ -24,6 +25,7 @@ export default class World {
   public selectionGroupManager?: SelectionGroupManager;
   public visualCueManager?: VisualCueManager;
   public delimiterImages: DelimiterImage[];
+  public gridImage: GridImage[];
 
   constructor() {
     // Experience fields
@@ -34,6 +36,7 @@ export default class World {
     // Class fields
     this.renderObjectCount = 0;
     this.delimiterImages = [];
+    this.gridImage = [];
 
     // Events
     Emitter.on("appReady", () => {
@@ -45,6 +48,22 @@ export default class World {
     Emitter.on("loadedFromFile", () => {
       this.delimiterImages.push(new DelimiterImage());
       this.delimiterImages.push(new DelimiterImage());
+
+      this.gridImage.push(new GridImage());
+      if (this.gridImage[0].mesh) {
+        this.camera.instance.add(this.gridImage[0].mesh);
+        this.gridImage[0].mesh.position.set(0, 0, -1);
+      }
+    });
+
+    Emitter.on("toggleGrid", () => {
+      if (this.gridImage[0].isVisible) {
+        this.gridImage[0]?.hide();
+      } else {
+        this.gridImage[0]?.show();
+      }
+
+      this.gridImage[0].isVisible = !this.gridImage[0].isVisible;
     });
 
     Emitter.on("mouseDown", (event: MouseEvent) => {
@@ -144,6 +163,12 @@ export default class World {
     this.visualCueManager?.destroy();
     this.delimiterImages.forEach((delimiterImage) => {
       delimiterImage.destroy();
+    });
+    this.gridImage.forEach((gridImage) => {
+      if (gridImage.mesh) {
+        this.camera.instance.remove(gridImage.mesh);
+      }
+      gridImage.destroy();
     });
   }
 }

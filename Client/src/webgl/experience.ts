@@ -57,6 +57,7 @@ export default class Experience {
 
     // Load resources from file
     this.resources.loadDelimiterImage();
+    this.resources.loadGridImage();
 
     // Sizes resize event
     Emitter.on("resize", () => {

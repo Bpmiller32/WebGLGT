@@ -33,6 +33,17 @@ export default class ResourceLoader {
     });
   }
 
+  public loadGridImage() {
+    // Resolve the path to the grid image in /src/assets, this is instead of serving from /public
+    const gridImagePath = new URL("/src/assets/gridImage.png", import.meta.url)
+      .href;
+
+    this.textureLoader?.load(gridImagePath, (file) => {
+      this.items["gridImage"] = file;
+      Emitter.emit("loadedFromFile");
+    });
+  }
+
   public loadGtImageFromApi(
     imageUrl?: string,
     blob?: Blob,

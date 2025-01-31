@@ -456,7 +456,7 @@ export default defineComponent({
               />
               <UserButton
                 icon={userButtonConfig.grid}
-                handleClick={async () => {}}
+                handleClick={async () => {Emitter.emit("toggleGrid")}}
               />
             </div>
             <div class="flex">
