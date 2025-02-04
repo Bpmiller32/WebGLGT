@@ -18,8 +18,8 @@ import archiver from "archiver";
 /* -------------------------------------------------------------------------- */
 const app = express();
 const port = 3001;
-const reverseProxySubdomain = "/rafgroundtruth";
-// const reverseProxySubdomain = "";
+// const reverseProxySubdomain = "/rafgroundtruth";
+const reverseProxySubdomain = "";
 configureMiddleware(app); // Global middleware setup
 
 /* -------------------------------------------------------------------------- */
@@ -119,6 +119,44 @@ app.get(
         res.status(500).json({ error: "Error sending the PDF file" });
       }
     });
+  })
+);
+
+/* ------------------------- Get project images ------------------------- */
+app.post(
+  `${reverseProxySubdomain}/getProjectImages`,
+  requireAuth,
+  Utils.asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    // Verify there is a valid user
+    const username = req.user?.username;
+    if (!username) {
+      return res.status(401).send("User not authenticated");
+    }
+
+    // Grab project/db name from request
+    const { projectName } = req.body;
+    if (!projectName || typeof projectName !== "string") {
+      return res.status(400).json({ error: "Invalid or missing projectName" });
+    }
+
+    // Reference the Firestore collection
+    const collectionRef = db.collection(projectName);
+    const snapshot = await collectionRef.get();
+
+    if (snapshot.empty) {
+      return res.status(404).json({ error: "No images found in project" });
+    }
+
+    // Map the documents to the required format
+    const images = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        name: data.imageName,
+        status: data.status || "unclaimed", // Default to unclaimed if status is not set
+      };
+    });
+
+    res.status(200).json(images);
   })
 );
 
@@ -551,12 +589,6 @@ app.post(
         imageType: "",
         rotation: 0,
         timeOnImage: 0,
-        groupText0: "",
-        groupCoordinates0: "",
-        groupText1: "",
-        groupCoordinates1: "",
-        groupText2: "",
-        groupCoordinates2: "",
         assignedTo: null,
         status: "unclaimed",
         createdAt: new Date(),

@@ -1,4 +1,4 @@
-import { defineComponent, PropType, ref, watch } from "vue";
+import { defineComponent, PropType } from "vue";
 import {
   ScissorsIcon,
   MagnifyingGlassCircleIcon,
@@ -35,27 +35,8 @@ export default defineComponent({
       type: Boolean as PropType<boolean>,
       default: false,
     },
-    // Optional, to make the button toggleable
-    isToggleable: {
-      type: Boolean as PropType<boolean>,
-      default: false,
-    },
-    // Optional, to control toggle state externally
-    modelValue: {
-      type: Boolean as PropType<boolean>,
-      default: false,
-    },
   },
-  emits: ["update:modelValue"],
-  setup(props, { emit }) {
-    // Local state for toggle
-    const isToggled = ref(props.modelValue);
-
-    // Update local state when modelValue changes
-    watch(() => props.modelValue, (newValue: boolean) => {
-      isToggled.value = newValue;
-    }, { immediate: true });
-
+  setup(props) {
     // Function to select the correct icon based on the button type
     const renderIcon = () => {
       switch (props.buttonType) {
@@ -110,21 +91,13 @@ export default defineComponent({
       <button
         onClick={() => {
           if (!props.disabled) {
-            if (props.isToggleable) {
-              const newValue = !isToggled.value;
-              isToggled.value = newValue;
-              emit("update:modelValue", newValue);
-            }
             props.handleClick(props.buttonType);
           }
         }}
         disabled={props.disabled}
         class={{
           "flex items-center py-2 px-3 gap-2 border group": true,
-          "border-white/50 hover:border-indigo-600 opacity-100 enabled:transition-all enabled:duration-300":
-            !props.disabled && !isToggled.value,
-          "border-indigo-600 bg-indigo-600/20":
-            props.isToggleable && isToggled.value,
+          "border-white/50 hover:border-indigo-600 opacity-100 enabled:transition-all enabled:duration-300": !props.disabled,
           "border-white/20 cursor-not-allowed opacity-50": props.disabled,
           "rounded-l-xl": props.roundLeftCorner,
           "rounded-r-xl": props.roundRightCorner,

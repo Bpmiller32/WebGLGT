@@ -79,7 +79,7 @@ export default class GridImage {
       new THREE.MeshBasicMaterial({
         map: this.resources.items.gridImage, // Front face with texture
         transparent: true, // ✅ Enable transparency
-        opacity: 0.35, // Transparency
+        opacity: 0.25, // Transparency
         depthWrite: false, // Prevents z-sorting issues
       }),
       new THREE.MeshBasicMaterial({ color: 0xffffff }), // Back face

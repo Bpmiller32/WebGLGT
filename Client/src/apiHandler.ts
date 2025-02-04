@@ -43,6 +43,32 @@ export default class ApiHandler {
     }
   }
 
+  // Retrieves all images and their statuses for a project
+  public static async getProjectImages(apiUrl: string, projectName: string) {
+    try {
+      // Retrieve the token from localStorage
+      const token = this.getTokenOrThrow();
+
+      // Make a POST request to the protected endpoint
+      const response = await axios.post(
+        `${apiUrl}/getProjectImages`,
+        { projectName },
+        { headers: this.getAuthHeaders(token) }
+      );
+
+      // Check for success in response
+      if (response.status === 200) {
+        return response.data;
+      } else {
+        return [];
+      }
+    } catch (error) {
+      console.error("Error getting project images:", error);
+      Emitter.emit("appError", "Error getting project images");
+      return [];
+    }
+  }
+
   // Downloads User Guide PDF from the server and opens it in a new tab
   public static async getPdf(apiUrl: string) {
     try {

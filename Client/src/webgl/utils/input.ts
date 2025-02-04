@@ -274,6 +274,13 @@ export default class Input {
   };
 
   private handleWheel = (event: WheelEvent) => {
+    // Don't emit wheel events if we're in a modal
+    if (
+      event.target instanceof HTMLElement &&
+      event.target.closest('.modal-content') !== null
+    ) {
+      return;
+    }
     Emitter.emit("mouseWheel", event);
   };
 
@@ -283,8 +290,12 @@ export default class Input {
 
   // Prevent default scrolling on wheel if it’s not within a textarea
   private handleGlobalWheel = (event: WheelEvent) => {
-    // Allow scrolling inside the textarea
-    if (event.target instanceof HTMLTextAreaElement) {
+    // Allow scrolling inside the textarea or elements with allow-scroll class
+    if (
+      event.target instanceof HTMLTextAreaElement ||
+      (event.target instanceof HTMLElement &&
+        event.target.closest('.allow-scroll') !== null)
+    ) {
       return;
     }
 
