@@ -60,7 +60,7 @@ export default defineComponent({
           return (
             <BackwardIcon class="h-5 w-5 text-gray-100 group-enabled:transition-colors group-enabled:duration-300 group-hover:text-indigo-100 group-disabled:text-gray-400" />
           );
-        case "Next":
+        case "Skip":
           return (
             <ForwardIcon class="h-5 w-5 text-gray-100 group-enabled:transition-colors group-enabled:duration-300 group-hover:text-indigo-100 group-disabled:text-gray-400" />
           );
@@ -97,7 +97,8 @@ export default defineComponent({
         disabled={props.disabled}
         class={{
           "flex items-center py-2 px-3 gap-2 border group": true,
-          "border-white/50 hover:border-indigo-600 opacity-100 enabled:transition-all enabled:duration-300": !props.disabled,
+          "border-white/50 hover:border-indigo-600 opacity-100 enabled:transition-all enabled:duration-300":
+            !props.disabled,
           "border-white/20 cursor-not-allowed opacity-50": props.disabled,
           "rounded-l-xl": props.roundLeftCorner,
           "rounded-r-xl": props.roundRightCorner,

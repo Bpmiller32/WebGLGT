@@ -1,7 +1,7 @@
 import express, { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { db } from "./firebaseAdmin";
-import { Transaction } from "firebase-admin/firestore";
+import { FieldPath, Transaction } from "firebase-admin/firestore";
 import path from "path";
 import fs from "fs";
 import { AuthenticatedRequest } from "./types/authenticatedRequest";
@@ -165,14 +165,14 @@ app.post(
   `${reverseProxySubdomain}/next`,
   requireAuth,
   Utils.asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    // Verify there is a valid user
+    // Verify there is a valid user.
     const username = req.user?.username;
     if (!username) {
       return res.status(401).send("User not authenticated");
     }
 
-    // Grab project/db name and path to images from request
-    const { projectName, directoryPath } = req.body;
+    // Grab projectName, directoryPath, and skipCurrent flag from request.
+    const { projectName, directoryPath, skipCurrent } = req.body;
     if (!projectName || typeof projectName !== "string") {
       return res.status(400).json({ error: "Invalid or missing projectName" });
     }
@@ -181,99 +181,154 @@ app.post(
         .status(400)
         .json({ error: "Invalid or missing directoryPath" });
     }
+    const shouldSkipCurrent = Boolean(skipCurrent);
 
-    // Updates lastAccessedTime for user
+    // Update lastAccessedTime for user.
     await Utils.updateUserTimestamp(username);
 
-    // Get db result - use a Firestore transaction to atomically query
+    // Define a stale threshold (e.g., 5 minutes).
+    const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+    const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_MS);
+
+    // Run a transaction that first performs all reads, then all writes.
     const dbResult = await db.runTransaction<TransactionResult | null>(
       async (transaction: Transaction) => {
-        // Get user that sent request
+        // --- READ PHASE ---
+        // 1. Read the user's document.
         const userRef = db.collection("users").doc(username);
-        const userDoc = await transaction.get(userRef);
-        const userData = userDoc.data() || {
+        const userSnap = await transaction.get(userRef);
+        const userData = userSnap.data() || {
           currentEntryId: null,
           history: [],
         };
+        let history: string[] = userData.history || [];
 
-        // Push current entry to history if it exists
-        const history = userData.history || [];
-        if (userData.currentEntryId) {
-          history.push(userData.currentEntryId);
-        }
-        // Keep history array max size of 5
+        // Trim history to at most 5 entries.
         if (history.length > 5) {
-          history.shift();
+          history = history.slice(-5);
         }
 
-        // Define queries to fetch entries based on priority
-        const queries = [
-          // 1) Fetch unclaimed entries (highest priority)
-          db
-            .collection(projectName)
-            .where("status", "==", "unclaimed")
-            .orderBy("createdAt", "asc")
-            .limit(1),
-          // 2) Fetch in-progress entries assigned to this user
-          db
-            .collection(projectName)
-            .where("status", "==", "inProgress")
-            .where("assignedTo", "==", username)
-            .orderBy("createdAt", "asc")
-            .limit(10),
-          // 3) Fetch in-progress entries not assigned to this user
-          db
-            .collection(projectName)
-            .where("status", "==", "inProgress")
-            .where("assignedTo", "!=", username)
-            .orderBy("createdAt", "asc")
-            .limit(10),
-        ];
+        // Variable to hold our candidate entry (if any).
+        let candidateEntry: FirebaseFirestore.DocumentSnapshot | null = null;
 
-        // Process queries sequentially to find the next entry
-        for (const query of queries) {
-          const snapshot = await transaction.get(query);
-
-          if (!snapshot.empty) {
-            const entryDoc = snapshot.docs[0];
-            const entryData = entryDoc.data();
-
-            // Update the entry to mark it as in-progress and assign it to the current user
-            transaction.update(entryDoc.ref, {
-              assignedTo: username,
-              status: "inProgress",
-              claimedAt: new Date(),
-            });
-            // Update the user's document with the new current entry and updated history
-            transaction.set(
-              userRef,
-              { currentEntryId: entryDoc.id, history },
-              { merge: true }
-            );
-
-            // Return the entry details to the caller
-            return { id: entryDoc.id, imageName: entryData.imageName };
+        // 2. Check if there is a current entry.
+        if (userData.currentEntryId) {
+          if (!shouldSkipCurrent) {
+            // Attempt to resume the current entry.
+            const currentEntryRef = db
+              .collection(projectName)
+              .doc(userData.currentEntryId);
+            const currentEntrySnap = await transaction.get(currentEntryRef);
+            if (
+              currentEntrySnap.exists &&
+              currentEntrySnap.data()?.status === "inProgress" &&
+              currentEntrySnap.data()?.assignedTo === username
+            ) {
+              candidateEntry = currentEntrySnap;
+            } else {
+              history.push(userData.currentEntryId);
+            }
+          } else {
+            // If skipping is requested, add the current entry to history.
+            history.push(userData.currentEntryId);
           }
         }
 
-        // No available entries, update user document and exit
-        transaction.set(userRef, { history }, { merge: true });
-        return null;
+        // 3. If no candidate was chosen from the resume step, run candidate queries.
+        if (!candidateEntry) {
+          // Query 1: Fetch unclaimed entries.
+          const queryUnclaimed = db
+            .collection(projectName)
+            .where("status", "==", "unclaimed")
+            .orderBy("createdAt", "asc")
+            .limit(1);
+
+          const snapUnclaimed = await transaction.get(queryUnclaimed);
+          if (!snapUnclaimed.empty) {
+            candidateEntry = snapUnclaimed.docs[0];
+          } else {
+            // Query 2: Fetch in-progress entries assigned to this user.
+            let queryInProgressMine = db
+              .collection(projectName)
+              .where("status", "==", "inProgress")
+              .where("assignedTo", "==", username)
+              .orderBy("createdAt", "asc")
+              .limit(10);
+
+            if (history.length > 0) {
+              queryInProgressMine = queryInProgressMine.where(
+                FieldPath.documentId(),
+                "not-in",
+                history
+              );
+            }
+            const snapInProgressMine = await transaction.get(
+              queryInProgressMine
+            );
+            if (!snapInProgressMine.empty) {
+              candidateEntry = snapInProgressMine.docs[0];
+            } else {
+              // Query 3: Fetch stale entries.
+              // Note: We cannot add the "not-in" filter here because it would conflict
+              // with the "!=" filter on assignedTo. Instead, we fetch a few candidates and
+              // then filter them in memory.
+              const queryStale = db
+                .collection(projectName)
+                .where("status", "==", "inProgress")
+                .where("assignedTo", "!=", username)
+                .where("claimedAt", "<", staleThreshold)
+                .orderBy("claimedAt", "asc")
+                .limit(10);
+              const snapStale = await transaction.get(queryStale);
+              if (!snapStale.empty) {
+                // Manually filter out documents that are in the history.
+                for (const doc of snapStale.docs) {
+                  if (!history.includes(doc.id)) {
+                    candidateEntry = doc;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // --- WRITE PHASE (after all reads) ---
+        if (candidateEntry) {
+          // Update the candidate entry to mark it as in-progress and assign it to the current user.
+          transaction.update(candidateEntry.ref, {
+            assignedTo: username,
+            status: "inProgress",
+            claimedAt: new Date(),
+          });
+          // Update the user's document: set currentEntryId to the candidate and store the history.
+          transaction.set(
+            userRef,
+            { currentEntryId: candidateEntry.id, history },
+            { merge: true }
+          );
+          const candidateData = candidateEntry.data();
+          return { id: candidateEntry.id, imageName: candidateData?.imageName };
+        } else {
+          // No candidate found: update history and return null.
+          transaction.set(userRef, { history }, { merge: true });
+          return null;
+        }
       }
     );
 
-    // Check if db result was successful
+    // Check if a candidate entry was found.
     if (!dbResult) {
       return res.status(404).send({ message: "No available entries" });
     }
 
-    // Retrieve the image file from disk
+    // Retrieve the image file from disk.
     const imageBlob = await Utils.getImageBlob(
       directoryPath,
       dbResult.imageName
     );
 
-    // Send the entry details and the image blob to the client
+    // Send the entry details and the image blob to the client.
     res.send({ ...dbResult, imageBlob });
   })
 );
@@ -586,7 +641,6 @@ app.post(
       // Create a new document
       const docData: ImageDocument = {
         imageName: imageFile,
-        imageType: "",
         rotation: 0,
         timeOnImage: 0,
         assignedTo: null,
@@ -648,7 +702,11 @@ app.post(
         ...(doc.data() as any),
       }))
       .filter(
-        (docData) => docData.assignedTo && docData.assignedTo.trim() !== ""
+        (docData) =>
+          docData.assignedTo &&
+          docData.assignedTo.trim() !== "" &&
+          docData.status !== "unclaimed" &&
+          docData.status !== "inProgress"
       );
 
     // If no valid documents remain, return an error response

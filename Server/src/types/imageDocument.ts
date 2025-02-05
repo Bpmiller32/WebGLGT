@@ -1,6 +1,5 @@
 export interface ImageDocument {
   imageName: string;
-  imageType: string;
   rotation: number;
   timeOnImage: number;
 

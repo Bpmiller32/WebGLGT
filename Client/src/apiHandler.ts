@@ -278,26 +278,27 @@ export default class ApiHandler {
   public static async next(
     apiUrl: string,
     projectName: string,
-    directoryPath: string
+    directoryPath: string,
+    skipCurrent: boolean = false // NEW optional parameter to indicate skipping the current image
   ) {
     try {
-      // Retrieve the token from localStorage
+      // Retrieve the token from localStorage.
       const token = this.getTokenOrThrow();
 
-      // Make a POST request to the protected endpoint
+      // Make a POST request to the protected endpoint, including skipCurrent in the body.
       const response = await axios.post(
         `${apiUrl}/next`,
-        { projectName, directoryPath },
+        { projectName, directoryPath, skipCurrent },
         { headers: this.getAuthHeaders(token) }
       );
 
-      // Extract the response data, imageBlob is Base64 string since the content type on the response was json
+      // Extract the response data. Note that imageBlob is a Base64 string.
       const { imageName, imageBlob } = response.data;
       if (!imageBlob) {
         throw new Error("No valid imageBlob in response");
       }
 
-      // Decode base64 string -> Blob + object URL
+      // Decode the Base64 string into a Blob and an object URL.
       const { blob, blobUrl } = this.decodeBase64Image(imageBlob);
 
       return {
@@ -347,19 +348,19 @@ export default class ApiHandler {
         blob: blob,
         selectionGroups: {
           group0: {
-            coordinates: [],
+            coordinates: selectionGroups.group0.coordinates || [],
             boxes: selectionGroups.group0.boxes || [],
             text: selectionGroups.group0.text || "",
             type: selectionGroups.group0.type || "",
           },
           group1: {
-            coordinates: [],
+            coordinates: selectionGroups.group1.coordinates || [],
             boxes: selectionGroups.group1.boxes || [],
             text: selectionGroups.group1.text || "",
             type: selectionGroups.group1.type || "",
           },
           group2: {
-            coordinates: [],
+            coordinates: selectionGroups.group2.coordinates || [],
             boxes: selectionGroups.group2.boxes || [],
             text: selectionGroups.group2.text || "",
             type: selectionGroups.group2.type || "",
@@ -405,19 +406,19 @@ export default class ApiHandler {
         blob: blob,
         selectionGroups: {
           group0: {
-            coordinates: [],
+            coordinates: selectionGroups.group0.coordinates || [],
             boxes: selectionGroups.group0.boxes || [],
             text: selectionGroups.group0.text || "",
             type: selectionGroups.group0.type || "",
           },
           group1: {
-            coordinates: [],
+            coordinates: selectionGroups.group1.coordinates || [],
             boxes: selectionGroups.group1.boxes || [],
             text: selectionGroups.group1.text || "",
             type: selectionGroups.group1.type || "",
           },
           group2: {
-            coordinates: [],
+            coordinates: selectionGroups.group2.coordinates || [],
             boxes: selectionGroups.group2.boxes || [],
             text: selectionGroups.group2.text || "",
             type: selectionGroups.group2.type || "",
@@ -438,46 +439,50 @@ export default class ApiHandler {
   // Handler for retrieving and loading the next image in WebGL experience.
   public static async handleNextImage(
     apiUrl: string,
-    webglExperience: Experience
+    webglExperience: Experience,
+    skipCurrent: boolean = false // NEW optional parameter: true if the user wants to skip their current image
   ) {
     // Retrieve projectName and directoryPath from localStorage
     const { projectName, directoryPath } = this.getProjectInfoOrThrow();
 
-    // Pull next viable image from project db
-    const image = await ApiHandler.next(apiUrl, projectName, directoryPath);
+    // Pull the next viable image from the project db, passing the skipCurrent flag.
+    const image = await ApiHandler.next(
+      apiUrl,
+      projectName,
+      directoryPath,
+      skipCurrent
+    );
     if (!image) {
       Emitter.emit("appError", "No image retrieved from the server");
       return;
     }
 
-    // Start image load into webgl scene as a texture
+    // Start image load into the WebGL scene as a texture.
     webglExperience.resources.loadGtImageFromApi(image.imageBlob, image.blob);
 
-    // Set image name in EditorDashboard if reference is found, setting with elementId to save complicated ref passing
+    // Set the image name in the EditorDashboard if the reference is found.
     const imageNameLabel = document.getElementById("gtImageName");
     if (imageNameLabel) {
       imageNameLabel.innerText = image.imageName;
     }
 
-    // Check if we're loading the same image again (indicates no more unclaimed images)
+    // Check if we're loading the same image again (indicating no new unclaimed images)
     if (webglExperience.input.previousDashboardImageName === image.imageName) {
       Emitter.emit(
         "appWarning",
         "No more unclaimed, loaded previously unfinished image"
       );
     }
-
     webglExperience.input.previousDashboardImageName = image.imageName;
 
-    // Iterate through the selection groups and reset classification tags
+    // Reset classification tags for the selection groups.
     [0, 1, 2].forEach((groupId) => {
       Emitter.emit("setGroupType", { groupId, type: "" });
     });
 
-    // Note: Not revoking URL here since we may need it for downloading later
+    // Note: We’re not revoking the URL here since we may need it for downloading later.
   }
 
-  // Handler for retrieving and loading the previous image in WebGL experience.
   // Handler for retrieving and loading a specific image by name in WebGL experience
   public static async handleImageByName(
     apiUrl: string,
@@ -521,6 +526,7 @@ export default class ApiHandler {
     this.checkForDuplicateImage(image.imageName, webglExperience);
   }
 
+  // Handler for retrieving and loading the previous image in WebGL experience.
   public static async handlePrevImage(
     apiUrl: string,
     webglExperience: Experience

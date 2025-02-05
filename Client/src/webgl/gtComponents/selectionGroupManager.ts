@@ -2,6 +2,13 @@
 /*           Handler for creating, joining, managing SelectionGroups          */
 /* -------------------------------------------------------------------------- */
 
+interface MeshData {
+  id: string;
+  position: { x: number; y: number; z: number };
+  size: { width: number; height: number };
+  coordinates?: { x: number; y: number }[];
+}
+
 import * as THREE from "three";
 import Experience from "../experience";
 import Camera from "../camera";
@@ -50,21 +57,9 @@ export default class SelectionGroupManager {
   private delimiterPadding!: number;
   private selectionGroupsColorMap!: { [key: number]: number };
 
-  public selectionGroup0MeshData: {
-    id: string;
-    position: { x: number; y: number; z: number };
-    size: { width: number; height: number };
-  }[] = [];
-  public selectionGroup1MeshData: {
-    id: string;
-    position: { x: number; y: number; z: number };
-    size: { width: number; height: number };
-  }[] = [];
-  public selectionGroup2MeshData: {
-    id: string;
-    position: { x: number; y: number; z: number };
-    size: { width: number; height: number };
-  }[] = [];
+  public selectionGroup0MeshData: MeshData[] = [];
+  public selectionGroup1MeshData: MeshData[] = [];
+  public selectionGroup2MeshData: MeshData[] = [];
 
   constructor() {
     // Init
@@ -112,6 +107,34 @@ export default class SelectionGroupManager {
       1: 0xff0000,
       2: 0x0000ff,
     };
+  }
+
+  private getPixelCoordinatesForMesh(
+    mesh: THREE.Mesh
+  ): { x: number; y: number }[] {
+    if (!this.world.imageContainer?.mesh) {
+      return [];
+    }
+
+    // Create a temporary mesh for getting coordinates
+    const tempMesh = mesh.clone();
+    tempMesh.position.z = 0;
+    tempMesh.updateMatrix();
+
+    // Intersect with image container to get exact bounds
+    const croppedMesh = CSG.intersect(this.world.imageContainer.mesh, tempMesh);
+
+    // Get pixel coordinates
+    const coordinates = GtUtils.getPixelCoordinatesFromSelectionMesh(
+      croppedMesh,
+      this.world.imageContainer
+    );
+
+    // Clean up
+    GtUtils.disposeMeshHelper(tempMesh);
+    GtUtils.disposeMeshHelper(croppedMesh);
+
+    return coordinates;
   }
 
   /* ------------------------------ Event methods ----------------------------- */
@@ -414,14 +437,7 @@ export default class SelectionGroupManager {
     });
   }
 
-  public recreateMeshesFromData(
-    groupIndex: number,
-    meshData: {
-      id: string;
-      position: { x: number; y: number; z: number };
-      size: { width: number; height: number };
-    }[]
-  ) {
+  public recreateMeshesFromData(groupIndex: number, meshData: MeshData[]) {
     // Get the target selection group array
     let targetGroup: THREE.Mesh[];
     switch (groupIndex) {
@@ -627,6 +643,9 @@ export default class SelectionGroupManager {
       const boundingBox = new THREE.Box3().setFromObject(mesh);
       boundingBox.getSize(size);
 
+      // Get pixel coordinates for this individual mesh
+      const coordinates = this.getPixelCoordinatesForMesh(mesh);
+
       return {
         id: `mesh${index}`,
         position: {
@@ -638,6 +657,7 @@ export default class SelectionGroupManager {
           width: Number(size.x.toFixed(4)),
           height: Number(size.y.toFixed(4)),
         },
+        coordinates: coordinates,
       };
     });
 

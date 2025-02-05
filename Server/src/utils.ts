@@ -69,21 +69,24 @@ export default class Utils {
     projectId: string,
     collectionId: string
   ) => {
-    // Create a custom JWT auth client
+    // Create a custom JWT auth client.
     const authClient = new google.auth.JWT({
       email: envVariables.GOOGLECLOUD_SERVICE_ACCOUNT.client_email,
       key: envVariables.GOOGLECLOUD_SERVICE_ACCOUNT.private_key,
       scopes: ["https://www.googleapis.com/auth/cloud-platform"],
     });
 
-    // Grab service account's Firestore
+    // Instantiate the Firestore API client.
     const firestore = google.firestore({
       version: "v1",
       auth: authClient,
     });
 
-    // Define collection to add indexes to, custom indexes config - for whatever annoying reason Firestore needs two....
+    // Define the parent path for the collection group.
     const collectionPath = `projects/${projectId}/databases/(default)/collectionGroups/${collectionId}`;
+    console.log("Creating indexes on:", collectionPath);
+
+    // Define the desired composite index configurations.
     const indexConfigs = [
       {
         fields: [
@@ -100,44 +103,72 @@ export default class Utils {
           { fieldPath: "__name__", order: "ASCENDING" },
         ],
       },
+      {
+        fields: [
+          { fieldPath: "assignedTo", order: "ASCENDING" },
+          { fieldPath: "status", order: "ASCENDING" },
+          { fieldPath: "claimedAt", order: "ASCENDING" },
+          { fieldPath: "__name__", order: "ASCENDING" },
+        ],
+      },
     ];
 
     try {
-      // Retrieve existing indexes for the collection group
+      // Retrieve existing composite indexes for the collection group.
       const { data: existingIndexes } =
         await firestore.projects.databases.collectionGroups.indexes.list({
           parent: collectionPath,
         });
 
-      // Ensure each index configuration is checked and created if needed
+      // Loop over each desired index configuration.
       for (const config of indexConfigs) {
-        const isExistingIndex = existingIndexes?.indexes?.some((existing) => {
-          const existingFields = existing.fields || [];
-          if (existingFields.length !== config.fields.length) return false;
+        // Check if an existing index with the same configuration, query scope,
+        // and that is READY exists.
+        const isExistingIndexReady = existingIndexes?.indexes?.some(
+          (existing) => {
+            // Ensure existing.fields is defined.
+            if (!existing.fields) return false;
+            // Check that the number of fields match.
+            if (existing.fields.length !== config.fields.length) return false;
+            // Ensure the index has the proper query scope.
+            if (existing.queryScope !== "COLLECTION_GROUP") return false;
+            // Only consider the index if its state is READY.
+            if (existing.state !== "READY") return false;
+            // Compare each field in order.
+            return config.fields.every((fieldConfig, i) => {
+              const existingField = existing.fields![i];
+              return (
+                fieldConfig.fieldPath === existingField.fieldPath &&
+                fieldConfig.order === existingField.order
+              );
+            });
+          }
+        );
 
-          return config.fields.every((fieldConfig, i) => {
-            const existingField = existingFields[i];
-            return (
-              fieldConfig.fieldPath === existingField.fieldPath &&
-              fieldConfig.order === existingField.order
-            );
-          });
-        });
-
-        // Create the index if it doesn't already exist
-        if (!isExistingIndex) {
-          await firestore.projects.databases.collectionGroups.indexes.create({
-            parent: collectionPath,
-            requestBody: {
-              fields: config.fields,
-              queryScope: "COLLECTION",
-            },
-          });
+        if (!isExistingIndexReady) {
+          console.log("Creating new index with config:", config.fields);
+          const op =
+            await firestore.projects.databases.collectionGroups.indexes.create({
+              parent: collectionPath,
+              requestBody: {
+                fields: config.fields,
+                queryScope: "COLLECTION_GROUP", // Change from "COLLECTION" to "COLLECTION_GROUP"
+              },
+            });
+          console.log("Index creation operation:", op.data);
+          // Optionally, you could implement polling here to wait until the index is READY.
+        } else {
+          console.log(
+            "Index already exists and is ready for config:",
+            config.fields
+          );
         }
       }
     } catch (error: any) {
       if (!error.message?.includes("already exists")) {
         throw new Error(`Error creating Firestore index: ${error}`);
+      } else {
+        console.log("Index already exists:", error.message);
       }
     }
   };

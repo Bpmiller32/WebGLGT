@@ -22,6 +22,21 @@ interface Coordinate {
   y: number;
 }
 
+interface BoundingBox {
+  topleft: { x: number; y: number };
+  width: number;
+  height: number;
+}
+
+// Interface for mesh data coming from selectionGroupManager
+interface SourceMeshData {
+  id?: string;
+  position: { x: number; y: number; z: number };
+  size: { width: number; height: number };
+  coordinates: Coordinate[];
+}
+
+// Interface for mesh data after processing
 interface MeshData {
   position: {
     x: number;
@@ -32,11 +47,12 @@ interface MeshData {
     width: number;
     height: number;
   };
+  coordinates: BoundingBox;
 }
 
 interface SelectionGroup {
   text: string;
-  coordinates: Coordinate[] | string;
+  coordinates: BoundingBox;
   boxes: MeshData[];
   type: string;
 }
@@ -45,6 +61,41 @@ interface SelectionGroups {
   group0: SelectionGroup;
   group1: SelectionGroup;
   group2: SelectionGroup;
+}
+
+// Interface for selectionGroupManager data
+interface SelectionGroupManagerData {
+  selectionGroupPixelCoordinates0: THREE.Vector2[];
+  selectionGroupPixelCoordinates1: THREE.Vector2[];
+  selectionGroupPixelCoordinates2: THREE.Vector2[];
+  selectionGroup0MeshData: SourceMeshData[];
+  selectionGroup1MeshData: SourceMeshData[];
+  selectionGroup2MeshData: SourceMeshData[];
+}
+
+// Helper function to calculate bounding box from coordinates
+function calculateBoundingBox(coordinates: Coordinate[]): BoundingBox {
+  if (!coordinates || coordinates.length === 0) {
+    return {
+      topleft: { x: 0, y: 0 },
+      width: 0,
+      height: 0,
+    };
+  }
+
+  // Find min and max x,y values
+  const xValues = coordinates.map((coord) => coord.x);
+  const yValues = coordinates.map((coord) => coord.y);
+  const minX = Math.min(...xValues);
+  const maxX = Math.max(...xValues);
+  const minY = Math.min(...yValues);
+  const maxY = Math.max(...yValues);
+
+  return {
+    topleft: { x: minX, y: minY },
+    width: maxX - minX,
+    height: maxY - minY,
+  };
 }
 
 export default defineComponent({
@@ -132,7 +183,8 @@ export default defineComponent({
     });
     Emitter.on("gotoNextImage", async () => {
       isLoading.value = true;
-      await ApiHandler.handleNextImage(apiUrl, props.webglExperience);
+      console.log("here, skipping sent");
+      await ApiHandler.handleNextImage(apiUrl, props.webglExperience, true);
       activateGroup(0);
     });
     Emitter.on("gotoPrevImage", async () => {
@@ -175,20 +227,34 @@ export default defineComponent({
     const submitToDb = async () => {
       // Extract selectionGroupManager from webglExperience.world with proper type assertion
       const selectionGroupManager = props.webglExperience.world
-        .selectionGroupManager as {
-        selectionGroupPixelCoordinates0: THREE.Vector2[];
-        selectionGroupPixelCoordinates1: THREE.Vector2[];
-        selectionGroupPixelCoordinates2: THREE.Vector2[];
-        selectionGroup0MeshData: (MeshData & { id?: string })[];
-        selectionGroup1MeshData: (MeshData & { id?: string })[];
-        selectionGroup2MeshData: (MeshData & { id?: string })[];
-      };
+        .selectionGroupManager as unknown as SelectionGroupManagerData;
 
       // Initialize selectionGroups with default structure
+      const defaultBoundingBox: BoundingBox = {
+        topleft: { x: 0, y: 0 },
+        width: 0,
+        height: 0,
+      };
+
       const selectionGroups: SelectionGroups = {
-        group0: { text: "", coordinates: "", boxes: [], type: "" },
-        group1: { text: "", coordinates: "", boxes: [], type: "" },
-        group2: { text: "", coordinates: "", boxes: [], type: "" },
+        group0: {
+          text: "",
+          coordinates: defaultBoundingBox,
+          boxes: [],
+          type: "",
+        },
+        group1: {
+          text: "",
+          coordinates: defaultBoundingBox,
+          boxes: [],
+          type: "",
+        },
+        group2: {
+          text: "",
+          coordinates: defaultBoundingBox,
+          boxes: [],
+          type: "",
+        },
       };
 
       // Iterate over each group to populate selectionGroups
@@ -199,31 +265,38 @@ export default defineComponent({
         const meshDataKey =
           `selectionGroup${index}MeshData` as keyof typeof selectionGroupManager;
 
-        // Extract and format pixel coordinates
+        // Extract and format pixel coordinates for the group
         const rawCoordinates = (selectionGroupManager[coordKey] ||
           []) as THREE.Vector2[];
         const coordinates = rawCoordinates.map((coord) => ({
-          x: Number(coord.x.toFixed(4)), // Round x-coordinate to 4 decimal places
-          y: Number(coord.y.toFixed(4)), // Round y-coordinate to 4 decimal places
+          x: Math.round(coord.x),
+          y: Math.round(coord.y),
         }));
 
-        // Extract mesh data, remove the `id` field before saving
-        const meshData: MeshData[] = (selectionGroupManager[meshDataKey] || [])
-          .filter(
-            (mesh): mesh is MeshData & { id?: string } =>
-              (mesh as MeshData).position !== undefined &&
-              (mesh as MeshData).size !== undefined
-          )
-          .map((mesh) => {
-            const cleanedMesh = { ...mesh }; // Clone the object to avoid modifying the original
-            delete cleanedMesh.id; // Remove the `id` field
-            return cleanedMesh;
-          });
+        // Calculate bounding box for the group
+        const groupBoundingBox = calculateBoundingBox(coordinates);
+
+        // Extract mesh data and calculate bounding boxes for individual boxes
+        const sourceMeshes = (selectionGroupManager[meshDataKey] ||
+          []) as SourceMeshData[];
+        const meshData: MeshData[] = sourceMeshes.map((sourceMesh) => {
+          // Create new MeshData object with the calculated bounding box
+          return {
+            position: sourceMesh.position,
+            size: sourceMesh.size,
+            coordinates: calculateBoundingBox(
+              sourceMesh.coordinates.map((coord) => ({
+                x: Math.round(coord.x),
+                y: Math.round(coord.y),
+              }))
+            ),
+          };
+        });
 
         // Assign extracted data to the corresponding group in selectionGroups
         selectionGroups[`group${index}` as keyof SelectionGroups] = {
           text: group.value || "", // Use provided text or default to an empty string
-          coordinates: coordinates.length > 0 ? coordinates : "", // Store formatted coordinates
+          coordinates: groupBoundingBox, // Store calculated bounding box
           boxes: meshData, // Store array of MeshData objects without the `id` field
           type: group.type || "", // Use provided type or default to an empty string
         };
@@ -320,7 +393,7 @@ export default defineComponent({
                 disabled={isLoading.value}
               />
               <ActionButton
-                buttonType="Next"
+                buttonType="Skip"
                 roundLeftCorner={false}
                 roundRightCorner={false}
                 handleClick={() => Emitter.emit("gotoNextImage")}
