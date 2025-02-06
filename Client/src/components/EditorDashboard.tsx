@@ -376,9 +376,18 @@ export default defineComponent({
                 }}
               />
               <UserButton
-                icon={userButtonConfig.help}
+                icon={userButtonConfig.gotoFile}
+                handleClick={() => {
+                  showFileModal.value = true;
+                }}
+              />
+              <UserButton
+                icon={userButtonConfig.downloadJson}
                 handleClick={async () => {
-                  await ApiHandler.getPdf(apiUrl);
+                  const projectName = localStorage.getItem("projectName");
+                  if (projectName) {
+                    await ApiHandler.exportToJson(apiUrl, projectName);
+                  }
                 }}
               />
             </div>
@@ -425,20 +434,11 @@ export default defineComponent({
 
           {/* Mail type, Image Action buttons */}
           <section class="flex justify-between items-center">
-            <div class="flex gap-1">
+            <div class="flex gap-2">
               <UserButton
-                icon={userButtonConfig.gotoFile}
-                handleClick={() => {
-                  showFileModal.value = true;
-                }}
-              />
-              <UserButton
-                icon={userButtonConfig.downloadJson}
+                icon={userButtonConfig.help}
                 handleClick={async () => {
-                  const projectName = localStorage.getItem("projectName");
-                  if (projectName) {
-                    await ApiHandler.exportToJson(apiUrl, projectName);
-                  }
+                  await ApiHandler.getPdf(apiUrl);
                 }}
               />
               <UserButton

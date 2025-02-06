@@ -28,7 +28,11 @@ export default defineComponent({
             id="username"
             type="text"
             class="block bg-[#211d20] w-full border-0 p-0 text-gray-100 placeholder:text-gray-400 focus:ring-0"
-            placeholder="username"
+            placeholder={
+              import.meta.env.VITE_ISDEMO === "true"
+                ? "demo (click start app)"
+                : "username"
+            }
             onInput={() => {
               if (usernameRef.value) {
                 props.setUsername(usernameRef.value.value);

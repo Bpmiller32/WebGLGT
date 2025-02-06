@@ -54,6 +54,11 @@ export default defineComponent({
       if (projectList.value.length < 1) {
         isStartButtonEnabled.value = false;
       }
+
+      if (import.meta.env.VITE_ISDEMO === "true") {
+        username.value = "demo";
+        password.value = "demo";
+      }
     });
 
     /* ---------------------------- Template handlers --------------------------- */

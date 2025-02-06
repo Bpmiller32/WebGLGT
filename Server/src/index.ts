@@ -17,8 +17,9 @@ import archiver from "archiver";
 /*                                    Setup                                   */
 /* -------------------------------------------------------------------------- */
 const app = express();
-const port = 3001;
-const reverseProxySubdomain = "/rafgroundtruth";
+const port = 3002;
+// const reverseProxySubdomain = "/rafgroundtruth";
+const reverseProxySubdomain = "/webglgt";
 // const reverseProxySubdomain = "";
 configureMiddleware(app); // Global middleware setup
 

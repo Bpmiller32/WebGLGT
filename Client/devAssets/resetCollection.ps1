@@ -1,46 +1,81 @@
-# Firestore project and collection details
-$projectId      = "rafgroundtruth"
-$collectionName = "usps"
-$firestoreApiUrl = "https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents/$collectionName"
+[string]$ServiceAccountPath = "C:\Users\billy\Documents\WebGLGT\googleCloudServiceAccount.json"
+[string]$ProjectId = "webglgt"
+[string]$Collection = "demo-images"
 
-# Use your static access token here.
-$accessToken = "ya29.a0AXeO80TrmZvRh_kRDDTelvKKlBRar3HN-maBSzuV6hjwnst2t26NhhzHlWgjSbJK6B9l0wMjo8W2tfHcG6kWJvBXLqEMdElDissWHT5WBiDWCgJMzCH5HtswQRl7aCqzDmTs7elHMEpeOlajeSTTGn28LA6Nip6GbmU_PzXHEV2uvT0_ZHVuAYmhZRE6PlCfkPPu7WC2356BRQwEC2EcQVNgPfJ3VCNbIvZ_TmItKBLgGekuTUCe8lNpjHlo-SdWv0G7sLFGdHDmlajlhki00TwEoT_A7FRI1nF3xLV5Rjjiy69xl07FHvipR4Y_hoRn74mHGW16wIX95bSsCFUD0etulXkZjrzxB9v22Tx6kKO5d0wp7E-LrErv_Rt0ZwLhvRl7pUv5_-BDMRm67Vy51FOR_NJsyJMYEnwaCgYKAdcSARESFQHGX2MifwUAfe4kz3MzNrUHCoqTrQ0426"
+# Load service account credentials and get an OAuth token
+Write-Host "Authenticating with Google Cloud..."
+$env:GOOGLE_APPLICATION_CREDENTIALS = $ServiceAccountPath
+$authToken = & gcloud auth print-access-token
 
-
-# Fetch all documents in the collection
-$response = Invoke-RestMethod -Uri $firestoreApiUrl -Headers @{
-    "Authorization" = "Bearer $authToken"
-} -Method GET
-
-# Check if documents are returned
-if ($null -eq $response.documents) {
-    Write-Host "No documents found in the collection."
-    exit
+if (-not $authToken) {
+    Write-Host "Failed to retrieve authentication token."
+    exit 1
 }
 
-# Iterate through each document in the collection
+# Firestore API base URL
+$firestoreBaseUrl = "https://firestore.googleapis.com/v1/projects/$ProjectId/databases/(default)/documents/$Collection"
+
+# Get all documents in the collection
+Write-Host "Fetching documents from Firestore..."
+$headers = @{ "Authorization" = "Bearer $authToken" }
+
+try {
+    $response = Invoke-RestMethod -Uri $firestoreBaseUrl -Headers $headers -Method Get
+} catch {
+    Write-Host "❌ Error fetching documents: $($_.Exception.Message)"
+    exit 1
+}
+
+if (-not $response.documents) {
+    Write-Host "No documents found in collection: $Collection"
+    exit 0
+}
+
+# Iterate through each document and update the 'status' field
 foreach ($doc in $response.documents) {
-    $documentName = $doc.name
-    Write-Host "Processing document: $documentName"
+    # Ensure document name exists
+    if (-not $doc.name) {
+        Write-Host "❌ Skipping document due to missing 'name' field."
+        continue
+    }
 
-    # Construct the URL for the document update with update masks for 'status' and 'assignedTo'
-    $documentUrl = "https://firestore.googleapis.com/v1/$documentName?updateMask.fieldPaths=status&updateMask.fieldPaths=assignedTo"
+    # Extract the correct document path
+    $documentPath = $doc.name -replace "^projects/$ProjectId/databases/\(default\)/documents/", ""
 
-    # Prepare the payload for a partial update
+    # Debugging: Show extracted document path
+    Write-Host "Extracted Document Path: '$documentPath'"
+
+    # Ensure the document path is valid
+    if (-not $documentPath -or $documentPath -eq "") {
+        Write-Host "❌ Skipping update due to missing document path."
+        continue
+    }
+
+    # Ensure the URL is properly constructed
+    $updateUrl = "https://firestore.googleapis.com/v1/projects/$ProjectId/databases/(default)/documents/$documentPath"
+    $queryParams = "?updateMask.fieldPaths=status"
+
+    # Firestore update payload
     $updatePayload = @{
         fields = @{
-            status     = @{ stringValue = "unclaimed" }
-            assignedTo = @{ stringValue = "" }
+            status = @{
+                stringValue = "unclaimed"
+            }
         }
-    } | ConvertTo-Json -Depth 10 -Compress
+    } | ConvertTo-Json -Depth 10 -Compress  # Ensures proper JSON format
 
-    # Update the document using a PATCH request
-    Invoke-RestMethod -Uri $documentUrl -Headers @{
-        "Authorization" = "Bearer $authToken"
-        "Content-Type"  = "application/json"
-    } -Method PATCH -Body $updatePayload
+    Write-Host "`nUpdating document: $documentPath"
+    Write-Host "Request URL: $updateUrl$queryParams"
+    Write-Host "Request Body: $updatePayload"
 
-    Write-Host "Updated document: $documentName"
+    try {
+        $response = Invoke-RestMethod -Uri "$updateUrl$queryParams" -Headers $headers -Method PATCH -Body $updatePayload -ContentType "application/json; charset=UTF-8"
+        Write-Host "✅ Successfully updated document: $documentPath"
+    } catch {
+        Write-Host "❌ Error updating document: $documentPath"
+        Write-Host "Response: $($_.Exception.Response.StatusCode) - $($_.Exception.Message)"
+        Write-Host "Detailed Response: $($_.ErrorDetails.Message)"
+    }
 }
 
-Write-Host "All documents updated successfully."
+Write-Host "All documents processed."

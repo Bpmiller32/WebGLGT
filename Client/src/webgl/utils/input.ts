@@ -32,24 +32,9 @@ const KEY_EVENT_MAP: {
       Emitter.emit("screenshotImage");
     },
   },
-  F5: {
-    onDown: () => {
-      Emitter.emit("fastImageClassify", "mp");
-      Emitter.emit("gotoNextImage");
-    },
-  },
-  F6: {
-    onDown: () => {
-      Emitter.emit("fastImageClassify", "hw");
-      Emitter.emit("gotoNextImage");
-    },
-  },
-  F7: {
-    onDown: () => {
-      Emitter.emit("fastImageClassify", "bad");
-      Emitter.emit("gotoNextImage");
-    },
-  },
+  F5: {},
+  F6: {},
+  F7: {},
   F8: {},
   F9: {},
   F10: {
@@ -122,16 +107,6 @@ export default class Input {
     window.addEventListener("mousemove", this.handleMouseMove);
     window.addEventListener("mouseup", this.handleMouseUp);
 
-    window.addEventListener("touchstart", this.handleTouchStart, {
-      passive: false,
-    });
-    window.addEventListener("touchmove", this.handleTouchMove, {
-      passive: false,
-    });
-    window.addEventListener("touchend", this.handleTouchEnd, {
-      passive: false,
-    });
-
     // Let mouse wheel be partially passive for performance, but also set a global wheel listener to selectively prevent scrolling outside of textareas.
     window.addEventListener("wheel", this.handleWheel, { passive: true });
     window.addEventListener("wheel", this.handleGlobalWheel, {
@@ -182,48 +157,6 @@ export default class Input {
     this.keyStates[event.code] = false;
     // Call any "up" function
     keyDef.onUp?.();
-  };
-
-  private handleTouchStart = (event: TouchEvent) => {
-    // Prevent default to avoid interfering with browser behaviors like scrolling
-    event.preventDefault();
-
-    // // Handle touch start
-    // const touches = Array.from(event.touches).map((touch) => ({
-    //   x: touch.clientX,
-    //   y: touch.clientY,
-    // }));
-
-    // // Emit a touch start event with touch points
-    // Emitter.emit("touchDown", touches);
-  };
-
-  private handleTouchMove = (event: TouchEvent) => {
-    // Prevent default to avoid browser behavior
-    event.preventDefault();
-
-    // // Handle touch move
-    // const touches = Array.from(event.touches).map((touch) => ({
-    //   x: touch.clientX,
-    //   y: touch.clientY,
-    // }));
-
-    // // Emit a touch move event with touch points
-    // Emitter.emit("touchMove", touches);
-  };
-
-  private handleTouchEnd = (event: TouchEvent) => {
-    // Prevent default if needed
-    event.preventDefault();
-
-    // // Handle touch end (no more touch points active)
-    // const changedTouches = Array.from(event.changedTouches).map((touch) => ({
-    //   x: touch.clientX,
-    //   y: touch.clientY,
-    // }));
-
-    // // Emit a touch end event with touch points
-    // Emitter.emit("touchUp", changedTouches);
   };
 
   private handleMouseDown = (event: MouseEvent) => {
@@ -277,7 +210,7 @@ export default class Input {
     // Don't emit wheel events if we're in a modal
     if (
       event.target instanceof HTMLElement &&
-      event.target.closest('.modal-content') !== null
+      event.target.closest(".modal-content") !== null
     ) {
       return;
     }
@@ -294,7 +227,7 @@ export default class Input {
     if (
       event.target instanceof HTMLTextAreaElement ||
       (event.target instanceof HTMLElement &&
-        event.target.closest('.allow-scroll') !== null)
+        event.target.closest(".allow-scroll") !== null)
     ) {
       return;
     }
@@ -321,10 +254,6 @@ export default class Input {
     window.removeEventListener("mouseup", this.handleMouseUp);
     window.removeEventListener("wheel", this.handleWheel);
     window.removeEventListener("wheel", this.handleGlobalWheel);
-
-    window.removeEventListener("touchstart", this.handleTouchStart);
-    window.removeEventListener("touchmove", this.handleTouchMove);
-    window.removeEventListener("touchend", this.handleTouchEnd);
 
     window.removeEventListener("contextmenu", this.handleContextMenu);
     window.removeEventListener("storage", this.handleStorageEvent);
