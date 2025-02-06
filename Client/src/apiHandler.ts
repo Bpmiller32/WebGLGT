@@ -306,12 +306,21 @@ export default class ApiHandler {
         imageBlob: blobUrl,
         blob: blob,
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error(
         "Could not navigate to or download the next image: ",
         error
       );
-      Emitter.emit("appError", "Error getting next image");
+      
+      // Check for specific 404 "No available entries" error
+      if (error.response?.status === 404 && error.response?.data?.message === "No available entries") {
+        // Use setTimeout to show the warning after any loading states are cleared
+        setTimeout(() => {
+          Emitter.emit("appWarning", "No available image candidates, likely at end of project deck");
+        }, 500);
+      } else {
+        Emitter.emit("appError", "Error getting next image");
+      }
       return null;
     }
   }
@@ -453,7 +462,8 @@ export default class ApiHandler {
       skipCurrent
     );
     if (!image) {
-      Emitter.emit("appError", "No image retrieved from the server");
+      // Emit loadedFromApi to clear loading state even when there's no image
+      Emitter.emit("loadedFromApi", { resetGui: true });
       return;
     }
 

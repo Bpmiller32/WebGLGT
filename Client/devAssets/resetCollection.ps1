@@ -1,74 +1,15 @@
-# Path to your service account key file
-$serviceAccountKeyPath = "$($HOME)/Desktop/googleCloudServiceAccount.json"
-
 # Firestore project and collection details
-$projectId = "rafgroundtruth"
+$projectId      = "rafgroundtruth"
 $collectionName = "usps"
-$firestoreApiUrl = "https://firestore.googleapis.com/v1/projects/$($projectId)/databases/(default)/documents/$($collectionName)"
+$firestoreApiUrl = "https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents/$collectionName"
 
-# Function to parse and use PEM private key
-function Get-RsaFromPem {
-    param (
-        [string]$pem
-    )
+# Use your static access token here.
+$accessToken = "ya29.a0AXeO80TrmZvRh_kRDDTelvKKlBRar3HN-maBSzuV6hjwnst2t26NhhzHlWgjSbJK6B9l0wMjo8W2tfHcG6kWJvBXLqEMdElDissWHT5WBiDWCgJMzCH5HtswQRl7aCqzDmTs7elHMEpeOlajeSTTGn28LA6Nip6GbmU_PzXHEV2uvT0_ZHVuAYmhZRE6PlCfkPPu7WC2356BRQwEC2EcQVNgPfJ3VCNbIvZ_TmItKBLgGekuTUCe8lNpjHlo-SdWv0G7sLFGdHDmlajlhki00TwEoT_A7FRI1nF3xLV5Rjjiy69xl07FHvipR4Y_hoRn74mHGW16wIX95bSsCFUD0etulXkZjrzxB9v22Tx6kKO5d0wp7E-LrErv_Rt0ZwLhvRl7pUv5_-BDMRm67Vy51FOR_NJsyJMYEnwaCgYKAdcSARESFQHGX2MifwUAfe4kz3MzNrUHCoqTrQ0426"
 
-    $pem = $pem -replace '-----BEGIN PRIVATE KEY-----', '' -replace '-----END PRIVATE KEY-----', '' -replace "`r`n", ""
-    $keyBytes = [Convert]::FromBase64String($pem)
-    
-    $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider
-    $rsa.ImportPkcs8PrivateKey($keyBytes, [ref]0)
-    return $rsa
-}
-
-# Function to create a JWT and obtain an access token
-function Get-FirebaseAuthToken {
-    param (
-        [string]$KeyPath
-    )
-    
-    # Read the service account key
-    $key = Get-Content -Raw -Path $KeyPath | ConvertFrom-Json
-
-    # Create a JWT header and claim set
-    $jwtHeader = @{
-        alg = "RS256"
-        typ = "JWT"
-    }
-    $jwtClaimSet = @{
-        iss   = $key.client_email
-        scope = "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/datastore"
-        aud   = "https://oauth2.googleapis.com/token"
-        exp   = [System.Math]::Floor([double]((Get-Date).AddMinutes(60).ToUniversalTime() - (Get-Date "01/01/1970")).TotalSeconds)
-        iat   = [System.Math]::Floor([double]((Get-Date).ToUniversalTime() - (Get-Date "01/01/1970")).TotalSeconds)
-    }
-    
-    # Encode the JWT header and claim set
-    $jwtHeaderEncoded    = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((ConvertTo-Json -Compress -InputObject $jwtHeader)))
-    $jwtClaimSetEncoded  = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes((ConvertTo-Json -Compress -InputObject $jwtClaimSet)))
-    $jwtUnsigned         = "$jwtHeaderEncoded.$jwtClaimSetEncoded"
-    
-    # Sign the JWT with the private key
-    $rsa = Get-RsaFromPem -pem $key.private_key
-    $jwtSignature = [Convert]::ToBase64String($rsa.SignData([System.Text.Encoding]::UTF8.GetBytes($jwtUnsigned), 'SHA256'))
-
-    # Combine the header, claim set, and signature
-    $jwt = "$jwtUnsigned.$jwtSignature"
-    
-    # Request an access token
-    $response = Invoke-RestMethod -Uri "https://oauth2.googleapis.com/token" -Method POST -Body @{
-        grant_type = "urn:ietf:params:oauth:grant-type:jwt-bearer"
-        assertion  = $jwt
-    }
-    
-    return $response.access_token
-}
-
-# Obtain an access token
-$authToken = Get-FirebaseAuthToken -KeyPath $serviceAccountKeyPath
 
 # Fetch all documents in the collection
 $response = Invoke-RestMethod -Uri $firestoreApiUrl -Headers @{
-    "Authorization" = "Bearer $($authToken)"
+    "Authorization" = "Bearer $authToken"
 } -Method GET
 
 # Check if documents are returned
@@ -77,33 +18,29 @@ if ($null -eq $response.documents) {
     exit
 }
 
-# Iterate through each document
+# Iterate through each document in the collection
 foreach ($doc in $response.documents) {
     $documentName = $doc.name
-    Write-Host "Processing document: $($documentName)"
+    Write-Host "Processing document: $documentName"
 
-    # Construct the full URL for the document
-    $documentUrl = "https://firestore.googleapis.com/v1/$($documentName)?updateMask.fieldPaths=status&updateMask.fieldPaths=assignedTo"
+    # Construct the URL for the document update with update masks for 'status' and 'assignedTo'
+    $documentUrl = "https://firestore.googleapis.com/v1/$documentName?updateMask.fieldPaths=status&updateMask.fieldPaths=assignedTo"
 
-    # Prepare the fields to update
+    # Prepare the payload for a partial update
     $updatePayload = @{
         fields = @{
-            status = @{
-                stringValue = "unclaimed"
-            }
-            assignedTo = @{
-                stringValue = ""
-            }
+            status     = @{ stringValue = "unclaimed" }
+            assignedTo = @{ stringValue = "" }
         }
     } | ConvertTo-Json -Depth 10 -Compress
 
-    # Update the document (partial update)
+    # Update the document using a PATCH request
     Invoke-RestMethod -Uri $documentUrl -Headers @{
-        "Authorization" = "Bearer $($authToken)"
+        "Authorization" = "Bearer $authToken"
         "Content-Type"  = "application/json"
     } -Method PATCH -Body $updatePayload
 
-    Write-Host "Updated document: $($documentName)"
+    Write-Host "Updated document: $documentName"
 }
 
 Write-Host "All documents updated successfully."

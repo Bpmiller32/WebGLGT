@@ -183,7 +183,6 @@ export default defineComponent({
     });
     Emitter.on("gotoNextImage", async () => {
       isLoading.value = true;
-      console.log("here, skipping sent");
       await ApiHandler.handleNextImage(apiUrl, props.webglExperience, true);
       activateGroup(0);
     });

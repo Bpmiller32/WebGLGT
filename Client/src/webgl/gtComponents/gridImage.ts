@@ -22,7 +22,14 @@ export default class GridImage {
   constructor() {
     // Init
     this.initializeFields();
+  }
 
+  public initialize() {
+    if (!this.resources.items.gridImage) {
+      console.error('Grid image resource not loaded');
+      return;
+    }
+    
     this.setGeometry();
     this.setMaterial();
     this.setMesh();

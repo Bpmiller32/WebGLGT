@@ -4,6 +4,8 @@
 
 import Emitter from "./eventEmitter";
 import * as THREE from "three";
+import delimiterImageUrl from "../../assets/delimiterImage.png";
+import gridImageUrl from "../../assets/gridImage.png";
 
 export default class ResourceLoader {
   public items: { [key: string]: any };
@@ -20,28 +22,46 @@ export default class ResourceLoader {
     this.textureLoader = new THREE.TextureLoader();
   }
 
-  public loadDelimiterImage() {
-    // Resolve the path to the delimiter image in /src/assets, this is instead of serving from /public
-    const delimiterImagePath = new URL(
-      "/src/assets/delimiterImage.png",
-      import.meta.url
-    ).href;
+  // Loads a texture from the local assets directory
+  private pendingLoads: Set<string> = new Set();
 
-    this.textureLoader?.load(delimiterImagePath, (file) => {
-      this.items["delimiterImage"] = file;
-      Emitter.emit("loadedFromFile");
-    });
+  private loadLocalTexture(assetName: string, assetUrl: string) {
+    // Add to pending loads
+    this.pendingLoads.add(assetName);
+    
+    this.textureLoader?.load(
+      assetUrl,
+      (file) => {
+        this.items[assetName] = file;
+        // Ensure the image is fully loaded
+        const completeLoad = () => {
+          this.pendingLoads.delete(assetName);
+          // Only emit when all pending loads are complete
+          if (this.pendingLoads.size === 0) {
+            Emitter.emit("loadedFromFile");
+          }
+        };
+
+        if (file.image && file.image.complete) {
+          completeLoad();
+        } else {
+          file.image.onload = completeLoad;
+        }
+      },
+      undefined, // onProgress callback
+      (error) => {
+        console.error(`Error loading ${assetName}:`, error);
+        this.pendingLoads.delete(assetName);
+      }
+    );
+  }
+
+  public loadDelimiterImage() {
+    this.loadLocalTexture("delimiterImage", delimiterImageUrl);
   }
 
   public loadGridImage() {
-    // Resolve the path to the grid image in /src/assets, this is instead of serving from /public
-    const gridImagePath = new URL("/src/assets/gridImage.png", import.meta.url)
-      .href;
-
-    this.textureLoader?.load(gridImagePath, (file) => {
-      this.items["gridImage"] = file;
-      Emitter.emit("loadedFromFile");
-    });
+    this.loadLocalTexture("gridImage", gridImageUrl);
   }
 
   public loadGtImageFromApi(

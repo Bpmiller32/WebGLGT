@@ -18,8 +18,8 @@ import archiver from "archiver";
 /* -------------------------------------------------------------------------- */
 const app = express();
 const port = 3001;
-// const reverseProxySubdomain = "/rafgroundtruth";
-const reverseProxySubdomain = "";
+const reverseProxySubdomain = "/rafgroundtruth";
+// const reverseProxySubdomain = "";
 configureMiddleware(app); // Global middleware setup
 
 /* -------------------------------------------------------------------------- */

@@ -21,7 +21,14 @@ export default class DelimiterImage {
   constructor() {
     // Init
     this.initializeFields();
+  }
 
+  public initialize() {
+    if (!this.resources.items.delimiterImage) {
+      console.error('Delimiter image resource not loaded');
+      return;
+    }
+    
     this.setGeometry();
     this.setMaterial();
     this.setMesh();
