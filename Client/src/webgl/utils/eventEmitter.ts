@@ -37,6 +37,7 @@ type EventMap = {
   gotoNextImage: void;
   gotoPrevImage: void;
   setGroupType: { groupId: number; type: "MP" | "HW" | "Bad" | "" };
+  setActiveTags: string[];
 };
 
 // Create an emitter instance

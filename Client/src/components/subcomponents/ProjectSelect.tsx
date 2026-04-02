@@ -42,9 +42,14 @@ export default defineComponent({
 
     return () => (
       <div>
+        <label for="project-select" class="sr-only">
+          Select Project
+        </label>
         <select
+          id="project-select"
           value={selectedProject.value}
           onChange={handleProjectChange}
+          aria-label="Select Project"
           class="w-full cursor-pointer col-start-1 row-start-1 appearance-none rounded-md py-1.5 pl-3 pr-8 text-base outline outline-1 -outline-offset-1 bg-white text-gray-900 outline-gray-300 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6"
         >
           {projects.value.map((project) => (

@@ -344,7 +344,7 @@ export default class ApiHandler {
       );
 
       // Extract the response data, imageBlob is Base64 string since the content type on the response was json
-      const { imageBlob, selectionGroups, rotation } = response.data;
+      const { imageBlob, selectionGroups, rotation, tags } = response.data;
       if (!imageBlob) {
         throw new Error("No valid imageBlob in response");
       }
@@ -376,6 +376,7 @@ export default class ApiHandler {
           },
         },
         rotation: rotation || 0,
+        tags: tags || [],
       };
     } catch (error) {
       console.error("Could not retrieve the specified image: ", error);
@@ -402,7 +403,7 @@ export default class ApiHandler {
       );
 
       // Extract the response data, imageBlob is Base64 string since the content type on the response was json
-      const { imageName, imageBlob, selectionGroups, rotation } = response.data;
+      const { imageName, imageBlob, selectionGroups, rotation, tags } = response.data;
       if (!imageBlob) {
         throw new Error("No valid imageBlob in response");
       }
@@ -434,6 +435,7 @@ export default class ApiHandler {
           },
         },
         rotation: rotation || 0,
+        tags: tags || [],
       };
     } catch (error) {
       console.error(
@@ -530,7 +532,7 @@ export default class ApiHandler {
     );
 
     // Update the UI with the db info
-    this.updateDashboard(image.imageName, image.selectionGroups);
+    this.updateDashboard(image.imageName, image.selectionGroups, image.tags);
 
     // Step 7: Check for duplicate image load
     this.checkForDuplicateImage(image.imageName, webglExperience);
@@ -570,7 +572,7 @@ export default class ApiHandler {
     );
 
     // Update the UI with the db info
-    this.updateDashboard(image.imageName, image.selectionGroups);
+    this.updateDashboard(image.imageName, image.selectionGroups, image.tags);
 
     // Step 7: Check for duplicate image load
     this.checkForDuplicateImage(image.imageName, webglExperience);
@@ -734,7 +736,7 @@ export default class ApiHandler {
   }
 
   // Updates the image name in the UI.
-  private static updateDashboard(imageName: string, selectionGroups: any) {
+  private static updateDashboard(imageName: string, selectionGroups: any, tags?: string[]) {
     // Update UI with image name
     const imageNameLabel = document.getElementById("gtImageName");
     if (imageNameLabel) {
@@ -779,6 +781,11 @@ export default class ApiHandler {
       const type = selectionGroups[`group${groupId}`]?.type as string;
       Emitter.emit("setGroupType", { groupId, type: getGroupType(type) });
     });
+
+    // Set active tags if provided
+    if (tags && tags.length > 0) {
+      Emitter.emit("setActiveTags", tags);
+    }
   }
 
   // Checks if the loaded image is the same as the current image.

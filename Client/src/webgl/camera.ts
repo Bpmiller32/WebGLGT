@@ -22,7 +22,7 @@ const CAMERA_DEFAULTS = {
   ZOOM: {
     DEFAULT: 1,
     MIN: 0.5,
-    MAX: 10,
+    MAX: 50,
   },
   POSITION: {
     Z: 10,

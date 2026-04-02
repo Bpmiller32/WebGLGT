@@ -202,6 +202,21 @@ export default defineComponent({
         groupTextAreas.value[groupId].type = type;
       }
     });
+    
+    Emitter.on("setActiveTags", (tags: string[]) => {
+      // Reset all tags to inactive
+      otherMailTags.value.forEach(tag => {
+        tag.active = false;
+      });
+      
+      // Set the specified tags to active
+      tags.forEach(tagName => {
+        const tagToActivate = otherMailTags.value.find(tag => tag.type === tagName);
+        if (tagToActivate) {
+          tagToActivate.active = true;
+        }
+      });
+    });
 
     /* ---------------------------- Helper functions ---------------------------- */
     // Computed property to check if save should be enabled
@@ -301,16 +316,22 @@ export default defineComponent({
         };
       });
 
-      // Prepare the update data to send in the API request
-      const updateData = {
-        status: "completed",
-        rotation:
-          props.webglExperience.world.imageContainer?.imageRotation || 0, // Get image rotation or default to 0
-        timeOnImage:
-          props.webglExperience.world.imageContainer?.stopwatch.elapsedTime ||
-          0, // Get elapsed time or default to 0
-        selectionGroups, // Include structured selection groups data
-      };
+    // Get active tags
+    const activeTags = otherMailTags.value
+      .filter(tag => tag.active)
+      .map(tag => tag.type);
+
+    // Prepare the update data to send in the API request
+    const updateData = {
+      status: "completed",
+      rotation:
+        props.webglExperience.world.imageContainer?.imageRotation || 0, // Get image rotation or default to 0
+      timeOnImage:
+        props.webglExperience.world.imageContainer?.stopwatch.elapsedTime ||
+        0, // Get elapsed time or default to 0
+      selectionGroups, // Include structured selection groups data
+      tags: activeTags, // Include active tags
+    };
 
       // Send the data update request
       await ApiHandler.updateImageData(apiUrl, updateData);

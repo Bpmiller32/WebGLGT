@@ -90,7 +90,7 @@ export default class SelectionGroupManager {
     this.selectionGroup0 = [];
     this.selectionGroup1 = [];
     this.selectionGroup2 = [];
-    this.boxSizeThreshold = 0.025;
+    this.boxSizeThreshold = 0.0075;
     this.combinedBoundingBox = new THREE.Box3();
     this.areSelectionGroupsJoined = false;
 

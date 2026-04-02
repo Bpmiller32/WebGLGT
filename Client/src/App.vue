@@ -55,6 +55,16 @@ const handleStartApp = async () => {
       numberOfSelectionGroups: 1,
       tags: ["RTS", "Form 3547", "FWD", "DBL Feed"],
     });
+  } else if (projectName == "USPS-TestDeck") {
+    Emitter.emit("setEditorDashboard", {
+      numberOfSelectionGroups: 1,
+      tags: ["RTS", "Form 3547", "FWD", "DBL Feed"],
+    });
+  } else if (projectName == "USPS-5k") {
+    Emitter.emit("setEditorDashboard", {
+      numberOfSelectionGroups: 2,
+      tags: ["RTS", "Form 3547", "FWD", "DBL Feed"],
+    });
   }
 
   // Transition login page -> app page

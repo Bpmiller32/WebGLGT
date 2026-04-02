@@ -50,32 +50,32 @@ export default class World {
         // Create and initialize delimiter images
         const delimiterImage1 = new DelimiterImage();
         const delimiterImage2 = new DelimiterImage();
-        
+
         delimiterImage1.initialize();
         delimiterImage2.initialize();
-        
+
         // Only add to arrays if initialization was successful
         if (delimiterImage1.mesh && delimiterImage2.mesh) {
           this.delimiterImages.push(delimiterImage1);
           this.delimiterImages.push(delimiterImage2);
         } else {
-          console.error('Failed to initialize delimiter images');
+          console.error("Failed to initialize delimiter images");
           return;
         }
 
         // Create and initialize grid image
         const gridImage = new GridImage();
         gridImage.initialize();
-        
+
         if (gridImage.mesh) {
           this.gridImage.push(gridImage);
           this.camera.instance.add(gridImage.mesh);
           gridImage.mesh.position.set(0, 0, -1);
         } else {
-          console.error('Failed to initialize grid image');
+          console.error("Failed to initialize grid image");
         }
       } catch (error) {
-        console.error('Error initializing images:', error);
+        console.error("Error initializing images:", error);
       }
     });
 

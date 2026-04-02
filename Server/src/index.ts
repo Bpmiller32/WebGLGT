@@ -17,10 +17,13 @@ import archiver from "archiver";
 /*                                    Setup                                   */
 /* -------------------------------------------------------------------------- */
 const app = express();
-const port = 3002;
-// const reverseProxySubdomain = "/rafgroundtruth";
-const reverseProxySubdomain = "/webglgt";
-// const reverseProxySubdomain = "";
+
+const port = 3001;
+const reverseProxySubdomain = "/rafgroundtruth";
+
+// const port = 3002;
+// const reverseProxySubdomain = "/webglgt";
+
 configureMiddleware(app); // Global middleware setup
 
 /* -------------------------------------------------------------------------- */
@@ -428,6 +431,7 @@ app.post(
           imageType: entryData?.imageType || "mp", // Default to "mp" if not set
           rotation: entryData?.rotation || 0,
           selectionGroups,
+          tags: entryData?.tags || [],
         };
       }
     );
@@ -536,6 +540,7 @@ app.post(
       imageType: entryData.imageType || "mp", // Default to "mp" if not set
       rotation: entryData.rotation || 0,
       selectionGroups,
+      tags: entryData.tags || [],
       imageBlob,
     });
   })
