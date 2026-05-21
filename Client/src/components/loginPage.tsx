@@ -71,10 +71,15 @@ export default defineComponent({
     const handleStartAppButtonClicked = async () => {
       // await logTrackedEvent(props.sessionId, "clicked start button");
 
+      // In demo mode, ignore whatever the visitor typed and always start as the demo user
+      const isDemo = import.meta.env.VITE_ISDEMO === "true";
+      const usernameToSend = isDemo ? "demo" : username.value;
+      const passwordToSend = isDemo ? "demo" : password.value;
+
       const isAuthenticated = await ApiHandler.login(
         apiUrl,
-        username.value,
-        password.value,
+        usernameToSend,
+        passwordToSend,
         true,
         selectedProject.value,
         selectedProject.value

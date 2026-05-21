@@ -90,8 +90,8 @@ export default class ApiHandler {
 
       Emitter.emit("appSuccess", "Helpfile popup opened");
     } catch (error) {
-      console.error("Error downloading the PDF: ", error);
-      Emitter.emit("appError", "Error downloading the PDF");
+      console.error("Error downloading the help PDF: ", error);
+      Emitter.emit("appError", "Error downloading the help PDF");
     }
   }
 

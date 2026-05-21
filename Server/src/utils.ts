@@ -4,6 +4,7 @@ import path from "path";
 import { google } from "googleapis";
 import { envVariables } from "./envConfig";
 import { db } from "./firebaseAdmin";
+import { FieldValue } from "firebase-admin/firestore";
 import sharp from "sharp";
 
 export default class Utils {
@@ -240,6 +241,41 @@ export default class Utils {
     // await fs.writeFile(debugFilePath, dataUrl, { encoding: "utf8" });
 
     return dataUrl;
+  };
+
+  // Per-session reset for the demo user: clears all annotation state in the given project
+  // collection back to "unclaimed" and wipes the demo user's currentEntryId/history.
+  // Called from the login route when the demo user logs in.
+  public static resetDemoProject = async (projectName: string) => {
+    const collectionRef = db.collection(projectName);
+    const snap = await collectionRef.get();
+
+    // Firestore batches cap at 500 ops; chunk to be safe.
+    const docs = snap.docs;
+    const CHUNK = 400;
+    for (let i = 0; i < docs.length; i += CHUNK) {
+      const batch = db.batch();
+      for (const doc of docs.slice(i, i + CHUNK)) {
+        const data = doc.data();
+        batch.set(doc.ref, {
+          imageName: data.imageName,
+          createdAt: data.createdAt,
+          project: data.project ?? projectName,
+          rotation: 0,
+          timeOnImage: 0,
+          assignedTo: null,
+          status: "unclaimed",
+          claimedAt: null,
+          finishedAt: null,
+        });
+      }
+      await batch.commit();
+    }
+
+    await db.collection("users").doc("demo").update({
+      currentEntryId: FieldValue.delete(),
+      history: [],
+    });
   };
 
   // Helper method to determine MIME type

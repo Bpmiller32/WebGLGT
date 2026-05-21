@@ -18,11 +18,11 @@ import archiver from "archiver";
 /* -------------------------------------------------------------------------- */
 const app = express();
 
-const port = 3001;
-const reverseProxySubdomain = "/rafgroundtruth";
+// const port = 3001;
+// const reverseProxySubdomain = "/rafgroundtruth";
 
-// const port = 3002;
-// const reverseProxySubdomain = "/webglgt";
+const port = 3002;
+const reverseProxySubdomain = "/webglgt";
 
 configureMiddleware(app); // Global middleware setup
 
@@ -56,6 +56,12 @@ app.post(
 
     // Update lastLoggedInTime
     await userDoc.ref.update({ lastLoggedInTime: new Date() });
+
+    // Per-session reset: when the demo user logs in, wipe annotation state
+    // so each portfolio visitor starts from a clean slate.
+    if (username === "demo") {
+      await Utils.resetDemoProject("demo-images");
+    }
 
     // Create a JWT (6h expiry)
     const token = jwt.sign({ username }, envVariables.JWT_KEY, {
