@@ -1,6 +1,6 @@
 # WebGLGT
 
-*Multi-user OCR ground-truth annotation on a WebGL canvas — draw any number of regions and they collapse into a single Google Vision call per image.*
+_Multi-user OCR ground-truth annotation on a WebGL canvas — draw any number of regions and they collapse into a single Google Vision call per image._
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black)
@@ -33,7 +33,7 @@
 
 WebGLGT is a full-stack annotation tool that lets multiple human annotators label OCR training data from a shared work queue, drawing free-form selection regions directly on a Three.js canvas. I built it to replace a slow, single-user Windows desktop tool. This one runs in a browser, has no dependency on internal SSO/AD/VPN, and is self-contained enough to be used on anything from mail pieces to forms to arbitrary scanned text.
 
-[Live Demo](https://webglgt.web.app) · [How it works](#architecture)
+[Live Demo](https://webglgt.web.app) · [Architecture](#architecture) · [What I learned](#what-i-learned)
 
 ---
 
@@ -52,7 +52,7 @@ The original ground-truth tool was a Windows desktop app: one annotator at a tim
 
 - **WebGL annotation canvas** — draw any number of bounding boxes per image across multiple color-coded selection groups. Overlapping boxes inside a group are merged with a CSG union into one clean region, so the OCR sees a single shape rather than a pile of overlapping rectangles.
 - **One Google Vision call per image, no matter the box count** — the drawn regions are cropped and stitched into a single image on the GPU (a delimiter strip between each group), captured straight off the WebGL canvas, and sent to Vision as one `DOCUMENT_TEXT_DETECTION` request. The OCR text comes back as one string and is split per group. Draw 1 box or 30 across 3 groups — it's still one call.
-- **Multi-user image queue with transactional claims** — a single Firestore transaction either resumes your in-progress image or hands you the next one, falling through *unclaimed → your own in-progress → another user's claim gone stale after 5 minutes*, with a per-user recent-history list so you don't get the same image twice in a row. No locks, no polling, no two annotators stepping on each other.
+- **Multi-user image queue with transactional claims** — a single Firestore transaction either resumes your in-progress image or hands you the next one, falling through _unclaimed → your own in-progress → another user's claim gone stale after 5 minutes_, with a per-user recent-history list so you don't get the same image twice in a row. No locks, no polling, no two annotators stepping on each other.
 - **Session continuity** — JWT auto-login (from `localStorage`) restores the last project and resumes the exact in-progress image after a refresh or a full browser restart.
 - **Keyboard-driven editing** — selection-group switching, per-group text fields, save/next/prev, image pan/zoom, and rotation (with a grid overlay for alignment) are all reachable from the keyboard and mouse, so a fast annotator never leaves the home row. A searchable file browser jumps straight to any image by filename.
 - **Per-project setup** — the number of selection groups and the classification tags are configured per project (USPS: RTS / Form 3547 / FWD / DBL Feed; TJX: Vendor Only), and the editor renders the right group count and tag buttons for whichever project you opened.
@@ -62,6 +62,7 @@ The original ground-truth tool was a Windows desktop app: one annotator at a tim
 ## Tech stack
 
 **Frontend**
+
 - Vue 3 (components authored in TSX via `@vitejs/plugin-vue-jsx`), TypeScript, Vite
 - Three.js with `three-csg-ts` — CSG `intersect` crops each region against the image, `union` merges boxes and groups into one mesh
 - Tailwind CSS (+ `@tailwindcss/forms`), Heroicons
@@ -70,6 +71,7 @@ The original ground-truth tool was a Windows desktop app: one annotator at a tim
 - `dat.GUI` and `stats.js` for the debug overlay
 
 **Backend**
+
 - Node.js, Express, TypeScript
 - `firebase-admin` (Firestore as the primary data store)
 - `jsonwebtoken` — JWT auth with a 6h expiry, verified by a `Bearer` middleware on every data route
@@ -78,9 +80,11 @@ The original ground-truth tool was a Windows desktop app: one annotator at a tim
 - `googleapis` — Firestore Admin API, used to auto-create the composite indexes the work-queue queries need when a project is created
 
 **OCR**
+
 - Google Cloud Vision (`DOCUMENT_TEXT_DETECTION`) — called from the **browser**; the server's only Vision role is vending the API key behind auth
 
 **Infrastructure**
+
 - Frontend on Firebase Hosting (`webglgt.web.app`)
 - Backend self-hosted on port `3002` under base path `/webglgt`, public via a reverse proxy at `webglgt.billmill.dev/webglgt`
 - Firestore for projects, images, users, and per-user state
@@ -88,11 +92,12 @@ The original ground-truth tool was a Windows desktop app: one annotator at a tim
 
 ## Architecture
 
-The interesting part is the `WGL → OCR` path inside the browser. Instead of sending each selection group to Vision separately, the client crops every drawn box against the image mesh with a CSG `intersect`, unions all the boxes and up to three groups into a *single* mesh with a delimiter strip between groups, renders that to an offscreen orthographic camera, and reads it back with `canvas.toDataURL`. That one composite image is the only thing posted to Vision — so 30 boxes across 3 groups is one OCR call, and the returned text is split back into per-group fields on a `#####` delimiter. The other interesting node is `QUEUE`: a single Firestore transaction that reads the user's claim, then falls through *resume → unclaimed → own-in-progress → another user's stale (5-minute) claim*, and writes the new claim — all atomically, in one round trip.
+The interesting part is the `WGL → OCR` path inside the browser. Instead of sending each selection group to Vision separately, the client crops every drawn box against the image mesh with a CSG `intersect`, unions all the boxes and up to three groups into a _single_ mesh with a delimiter strip between groups, renders that to an offscreen orthographic camera, and reads it back with `canvas.toDataURL`. That one composite image is the only thing posted to Vision — so 30 boxes across 3 groups is one OCR call, and the returned text is split back into per-group fields on a `#####` delimiter. The other interesting node is `QUEUE`: a single Firestore transaction that reads the user's claim, then falls through _resume → unclaimed → own-in-progress → another user's stale (5-minute) claim_, and writes the new claim — all atomically, in one round trip.
 
 ## Getting started
 
 **Prerequisites**
+
 - Node.js 20+ (developed on Node 22)
 - A Firebase project with Firestore enabled
 - A Google Cloud Vision API key
